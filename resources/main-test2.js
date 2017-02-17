@@ -1429,7 +1429,6 @@
 		return target;
 	};
 
-	//创建虚拟对象
 	function createVObj (tagName, html, inst) {
 		var 
 			attrMatch
@@ -1444,7 +1443,6 @@
 			;
 
 		while ((attrMatch = REGEXP.attrsRE.exec(html)) != null) {
-			//属性
 			attrKey = attrMatch[1];
 			attrValue = !_.isVoid0(attrMatch[2]) 
 				? attrMatch[2] 
@@ -1453,7 +1451,6 @@
 				: attrMatch[4];
 
 			if (match = attrKey.match(REGEXP.uniqRE)) {
-				//指令筛选
 				uniqAttrs[match[1]] = _.replaceEscapeWord(attrValue);
 				inst.isStatic = isStatic = false;
 
