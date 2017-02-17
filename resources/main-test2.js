@@ -2851,7 +2851,13 @@
 				_this = this
 				, children
 				;
-			
+
+			if (_.isArray(vNode)) {
+				_.each(_this.vNode, function(vNodeItem){
+					_this.initNode(vNodeItem)
+				})
+			}
+
 			createElemAndAppend(vNode, _this, _this.frag);
 			children = vNode.children || [];
 			children.length && _.each(children, function initNodeChildEach (child) {
