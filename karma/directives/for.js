@@ -1606,8 +1606,8 @@ describe('for', function () {
 
     it('简单for，结合component', function (done) {
         JSpring.component['user'] = {
-            key : 'd',
-            data : {},
+            data : 'd',
+            props : {},
             template : ('<div>'
                     + '<label>{{d.name}}</label>'
                     + '<label>{{d.age}}</label>'
@@ -1619,7 +1619,7 @@ describe('for', function () {
             /*
             <div id="for_inst">
                  <div class="for_div" :for="el in arr">
-                   <user :component="el" ></user>
+                   <user :component="el" class="user"></user>
                 </div>
             </div>
              */
@@ -1643,7 +1643,7 @@ describe('for', function () {
                 }],
         }, '#for_inst']);
         container = document.getElementById('for_inst');
-        var user = document.getElementsByTagName('user');
+        var user = document.getElementsByClassName('user');
 
         expect(user.length).to.equal(3);
 
@@ -1662,8 +1662,8 @@ describe('for', function () {
 
     it('简单for，结合component，多次更新', function (done) {
         JSpring.component['user'] = {
-            key : 'd',
-            data : {},
+            data : 'd',
+            props : {},
             template : ('<div>'
                     + '<label>{{d.name}}</label>'
                     + '<label>{{d.age}}</label>'
@@ -1675,7 +1675,7 @@ describe('for', function () {
             /*
             <div id="for_inst">
                  <div class="for_div" :for="el in arr">
-                   <user :component="el" ></user>
+                   <user :component="el" class="user2"></user>
                 </div>
             </div>
              */
@@ -1738,7 +1738,7 @@ describe('for', function () {
                 }],
         }, '#for_inst']);
         container = document.getElementById('for_inst');
-        var user = document.getElementsByTagName('user');
+        var user = document.getElementsByClassName('user2');
 
         expect(user.length).to.equal(3);
 
@@ -1800,10 +1800,10 @@ describe('for', function () {
 
 it('简单for，结合component，结合lv-model，多次更新', function (done) {
     JSpring.component['user'] = {
-        key : 'd',
+        data : 'd',
         parent : 'pp',
         index : 'ii',
-        data : {},
+        props : {},
         template : ('<div>'
                 + '<label>{{d.name}}</label>'
                 + '<label>{{d.age}}</label>'
@@ -1815,7 +1815,7 @@ it('简单for，结合component，结合lv-model，多次更新', function (done
     body.innerHTML = heredoc(function () {
         /*
         <div id="for_inst">
-           <user :for="el in arr" :component="el" ></user>
+           <user :for="el in arr" :component="el" class="user3" />
         </div>
          */
     });
@@ -1877,7 +1877,7 @@ it('简单for，结合component，结合lv-model，多次更新', function (done
             }],
     }, '#for_inst']);
     container = document.getElementById('for_inst');
-    var user = document.getElementsByTagName('user');
+    var user = document.getElementsByClassName('user3');
 
     expect(user.length).to.equal(3);
 
@@ -1954,8 +1954,8 @@ it('简单for，结合component，结合lv-model，多次更新', function (done
 
     it('简单for，结合component，私有域变量，多次更新', function (done) {
         JSpring.component['user'] = {
-            key : 'd',
-            data : {
+            data : 'd',
+            props : {
                 word : 'abc'
             },
             template : ('<div>'
@@ -1970,7 +1970,7 @@ it('简单for，结合component，结合lv-model，多次更新', function (done
             /*
             <div id="for_inst">
                  <div class="for_div" :for="el in arr">
-                   <user :component="el" ></user>
+                   <user :component="el" class="user4"></user>
                 </div>
             </div>
              */
@@ -1996,7 +1996,7 @@ it('简单for，结合component，结合lv-model，多次更新', function (done
                 }],
         }, '#for_inst']);
         container = document.getElementById('for_inst');
-        var user = document.getElementsByTagName('user');
+        var user = document.getElementsByClassName('user4');
 
         expect(user.length).to.equal(3);
 
@@ -2017,6 +2017,94 @@ it('简单for，结合component，结合lv-model，多次更新', function (done
             expect(user[0].querySelectorAll('label')[3].textContent).to.equal('aaa');
             expect(user[1].querySelectorAll('label')[3].textContent).to.equal('aaa');
             expect(user[2].querySelectorAll('label')[3].textContent).to.equal('aaa');
+
+            done();
+        }, 250);
+    });
+
+    it('简单for，嵌套component，多次更新', function (done) {
+        JSpring.component['user'] = {
+            data : 'u',
+            parent : 'p',
+            index : 'i',
+            props : {
+                description : 'a good user'
+            },
+            template : '<div>'
+                    + '<label>{{u.name}}</label><br />'
+                    + '<label>{{u.age}}</label><br />'
+                    + '<label>{{u.career}}</label><br />'
+                    + '<label>{{description}}</label>'
+                    + '</div>'
+        };
+
+        JSpring.component['userlist'] = {
+            data : 'arrayList',
+            template : '<div>'
+                + '<user :for="el in arrayList" :component="el" class="user5 aauser" ></user>'
+                + '<user :for="el in arrayList" :component="el" class="user5 bbuser" ></user>'
+                + '</div>'
+        };
+
+        body.innerHTML = heredoc(function () {
+            /*
+            <div id="for_inst">
+                 <userlist :component="arr" class="userlist aauserlist"></userlist>
+                 <userlist :component="arr" class="userlist bbuserlist"></userlist>
+            </div>
+             */
+        });
+
+        jsInst = JSpring([function ($scope, $, module) {
+            setTimeout(() => {
+                ;
+            }, 200);
+        }, {
+                arr : [{
+                    name : 'a',
+                    age : 1,
+                    career : 'tech'
+                }, {
+                    name : 'b',
+                    age : 2,
+                    career : 'tech2'
+                }, {
+                    name : 'c',
+                    age : 3,
+                    career : 'tech3'
+                }],
+        }, '#for_inst']);
+        container = document.getElementById('for_inst');
+        var userlist = document.getElementsByClassName('userlist');
+        var user = document.getElementsByClassName('user5');
+        var useraa = document.getElementsByClassName('aauser');
+        var userbb = document.getElementsByClassName('bbuser');
+        var useraalist = document.getElementsByClassName('aauserlist');
+        var userbblist = document.getElementsByClassName('bbuserlist');
+
+        expect(userlist.length).to.equal(2);
+        expect(user.length).to.equal(12);
+        expect(useraa.length).to.equal(6);
+        expect(userbb.length).to.equal(6);
+        expect(useraalist.length).to.equal(1);
+        expect(userbblist.length).to.equal(1);
+
+        expect(user[0].querySelectorAll('label')[0].textContent).to.equal('a');
+        expect(user[0].querySelectorAll('label')[1].textContent).to.equal('1');
+        expect(user[0].querySelectorAll('label')[2].textContent).to.equal('tech');
+        expect(user[0].querySelectorAll('label')[3].textContent).to.equal('a good user');
+        
+        expect(user[1].querySelectorAll('label')[0].textContent).to.equal('b');
+        expect(user[1].querySelectorAll('label')[1].textContent).to.equal('2');
+        expect(user[1].querySelectorAll('label')[2].textContent).to.equal('tech2');
+        expect(user[1].querySelectorAll('label')[3].textContent).to.equal('a good user');
+
+        expect(user[2].querySelectorAll('label')[0].textContent).to.equal('c');
+        expect(user[2].querySelectorAll('label')[1].textContent).to.equal('3');
+        expect(user[2].querySelectorAll('label')[2].textContent).to.equal('tech3');
+        expect(user[2].querySelectorAll('label')[3].textContent).to.equal('a good user');
+
+        setTimeout(() => {
 
             done();
         }, 250);

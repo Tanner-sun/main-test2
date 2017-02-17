@@ -5,21 +5,22 @@
  *
  * ==Initialize==
  * Create `$scope` to watch modify
- * Generate Virtual DOM, analyze the expression
- * Extend the `$scope` as `scope` on Virtual DOM from the instance in sequence
- * Generate DOM from Virtual DOM
- * Mount the DOM
+ * Analyze the html template and generate the vObj
+ * Convert vObj to a generating function with expressions
+ * Generate Virtual DOM and extend the `$scope` as `scope` on Virtual DOM from the instance in sequence
+ * Transfer Virtual DOM to DOM
+ * Mount the generated DOM
  *
  * ==Update==
  * Check the modify
- * Regenerate Virtual DOM according to the updates
+ * Regenerate Virtual DOM according to the generating function
  * Contrast the two Virtual DOM trees and add patch to the batch queue
  * Update DOM in sequence base on the batch queue
  * Garbage collection
  *
  * @author Arnold.Zhang
  *
- */
+ **/
 ;(function (global, factory) {
 	typeof exports === 'object' 
 		&& typeof module !== 'undefined' 
@@ -79,7 +80,9 @@
 
 			if (this.end()) {
 				return true;
-			} else {
+			} 
+
+			else {
 				this.INDEX += 1;
 			}
 		},
@@ -176,7 +179,7 @@
 	 * REGEXP
 	 **/
 	var REGEXP = {
-		startEndAngleRE : /((?:\s|&[a-zA-Z]+;|<!\-\-@|[^<>]+)*)(<?(\/?)([^!<>\/\s]+)(?:\s*[^\s=\/>]+(?:="[^"]*"|='[^']*'|)|)+\s*>?)(?:\s*@\-\->)?/g,
+		startEndAngleRE : /((?:\s|&[a-zA-Z]+;|<!\-\-@|[^<>]+)*)(<?(\/?)([^!<>\/\s]+)(?:\s*[^\s=\/>]+(?:="[^"]*"|='[^']*'|)|)+\s*\/?>?)(?:\s*@\-\->)?/g,
 		noEndRE : /^(?:input|br|img|link|hr|base|area|meta|embed|frame)$/,
 		attrsRE : /\s+([^\s=<>]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s<>]+))/g,
 		routeParamREG : /\:([^\:\-\.]+)/g,
@@ -195,6 +198,7 @@
 		styleRE : /([a-zA-Z]+)\s*:\s*([^:;]+)/g,
 		forRE : /(?:lv-|:)for/g,
 		compRE : /(?:lv-|:)component/g,
+		compSetRE : /<[^\/]+\/>/,
 		ifRE : /(?:lv-|:)if/g,
 		onRE : /(?:lv-|:)on/g,
 		onlySpaceRE : /^\s*$/,
@@ -294,8 +298,8 @@
 	 * _
 	 **/
 	var _ = {
-
-		capitalLower : function (str) {
+		
+		capitalLower : function capitalLower (str) {
 			return REGEXP.replace(str, REGEXP.capital, function (match) {
 				return '-' + $lower.call(match);
 			});
@@ -317,7 +321,23 @@
 			}
 		},
 
+		child : function child (el, index) {
+
+			if (this.isElement(el)) {
+				return el.children[index];
+			}
+		},
+
+		html : function html (el, str) {
+
+			if (this.isElement(el)) {
+				el.innerHTML = str;
+				return el;
+			}
+		},
+
 		uniqPush: function uniqPush (arr, child) {
+
 			if (_.isArray(arr)) {
 				return !_.inArray(arr, child) && _.push(arr, child);
 			}
@@ -349,7 +369,9 @@
 				if (!_.isUndefined(obj[key])) {
 					!_.isArray(obj[key]) && (obj[key] = [obj[key]]);
 					_.push(obj[key], value);
-				} else {
+				} 
+
+				else {
 					obj[key] = vArr[1];
 				}
 			});
@@ -357,12 +379,14 @@
 		},
 
 		createLoadingImg : function createLoadingImg () {
-			var str = '<div class="dataLoading">' +
-				'<i></i><i></i>' +
-				'<span>加载中...</span>' +
-				'</div>' +
-				'<div class="loadingMask"></div>',
-				div = $createEl('div');
+			var 
+				str = '<div class="dataLoading">'
+					+ '<i></i><i></i>' 
+					+ '<span>加载中...</span>' 
+					+ '</div>' 
+					+ '<div class="loadingMask"></div>'
+				, div = $createEl('div')
+				;
 
 			div.innerHTML = str;
 			div.ontouchmove = function (e) {
@@ -372,19 +396,26 @@
 		},
 
 		'delete' : function _delete (url, data, opts) {
-			return _.ajax(url, 'delete', _.isObject(data) ? data : {}, opts);
+			return _.proxyAjax('delete', url, data, opts);
 		},
 
 		put : function put (url, data, opts) {
-			return _.ajax(url, 'put', _.isObject(data) ? data : {}, opts);
+			return _.proxyAjax('put', url, data, opts);
 		},
 
 		post : function post (url, data, opts) {
-			return _.ajax(url, 'post', _.isObject(data) ? data : {}, opts);
+			return _.proxyAjax('post', url, data, opts);
 		},
 
 		get : function get (url, data, opts) {
-			return _.ajax(url, 'get', _.isObject(data) ? data : {}, opts);
+			return _.proxyAjax('get', url, data, opts);
+		},
+
+		proxyAjax : function proxyAjax (method, url, data, opts) {
+			return _.ajax(url || ''
+				, this.lower(method || 'GET')
+				, _.isObject(data) ? data : {}
+				, opts || {});
 		},
 
 		/**
@@ -427,7 +458,8 @@
 
 		getText : function getText (url, data, opts) {
 			opts = opts || {};
-			return _.ajax(url, 'get', _.isObject(data) ? data : {}, {
+			data = data || {};
+			return _.ajax(url, 'get', data, {
 				resType: 'text',
 				version: opts.version
 			});
@@ -442,7 +474,7 @@
 
 			data = _.serialize(data);
 			return new Promise(function(resolve, reject) {
-				return _.http(url, $lower.call(method), data, opts, resolve, reject);
+				return _.http(url, method, data, opts, resolve, reject);
 			}, opts);
 		},
 
@@ -479,7 +511,9 @@
 						_.isString(response) && (response = JSON.parse(response));
 					}
 					resolve(response);
-				} else {
+				} 
+
+				else {
 					reject(new Error(this.statusText));
 				}
 			};
@@ -490,18 +524,27 @@
 			if (_.isObject(data)) {
 				_.each($keys(data), function seriKeyEach(key) {
 					var value;
+
 					if (_.isArray(value = data[key])) {
 						_.each(value, function seriValueEach(val) {
+
 							if (!_.isVoid0(val)) {
 								result += key + '=' + encodeURIComponent(val) + '&';
-							} else {
+							} 
+
+							else {
 								result += key + '=&';
 							}
 						});
-					} else {
+					} 
+
+					else {
+
 						if (!_.isVoid0(value)) {
 							result += key + '=' + encodeURIComponent(value) + '&';
-						} else {
+						} 
+
+						else {
 							result += key + '=&';
 						}
 					}
@@ -519,16 +562,24 @@
 			if (_.isApp && _.isIOS) {
 				firstChannel = "IPHONE";
 				secondChannel = "AppStore";
-			} else if (_.isApp && _.isAndroid) {
+			} 
+
+			else if (_.isApp && _.isAndroid) {
 				firstChannel = "ANDROID";
 				secondChannel = UA.substring(UA.indexOf("ANDROID_") + 8, UA.lastIndexOf("LVMM") - 1);
-			} else if (_.isApp && _.isPad) {
+			} 
+
+			else if (_.isApp && _.isPad) {
 				firstChannel = "IPAD";
 				secondChannel = "AppStore";
-			} else if (_.isWp && _.isWebview) {
+			} 
+
+			else if (_.isWp && _.isWebview) {
 				firstChannel = "WP";
 				secondChannel = "WPStore";
-			} else {
+			} 
+
+			else {
 				firstChannel = "TOUCH";
 				secondChannel = "LVMM";
 			}
@@ -547,6 +598,7 @@
 
 		inDOC : function inDOC (node, ct) {
 			ct = ct || DOC;
+
 			if (!ct || !ct.contains) {
 				return false;
 			}
@@ -584,7 +636,7 @@
 			return arr;
 		},
 
-		arrPush : function (arr, list, arrFlag) {
+		arrPush : function arrPush (arr, list, arrFlag) {
 			var 
 				_this = this
 				;
@@ -639,6 +691,7 @@
 		},
 
 		parent : function parent (node) {
+
 			if (!this.isNode(node)) {
 				return false;
 			}
@@ -689,7 +742,9 @@
 				while (i--) {
 					if (arr[i] == obj) return i;
 				}
-			} else {
+			} 
+
+			else {
 
 				while (i--) {
 					if (arr[i] === obj) return i;
@@ -718,12 +773,34 @@
 			return arr;
 		},
 
-		extend : function extend (source ,target) {
+		extend : function extend (target , source, excepts) {
 
-			for (var key in target) {
-				source[key] = target[key];
+			if (!excepts) {
+
+				for (var key in source) {
+					target[key] = source[key];
+				}
 			}
-			return source;
+
+			else if (this.isArray(excepts)) {
+				for (var key in source) {
+
+					if (!this.inArray(excepts, key)) {
+						target[key] = source[key];
+					}
+				}
+			}
+
+			else if (this.isString(excepts)) {
+				for (var key in source) {
+
+					if (excepts !== key) {
+						target[key] = source[key];
+					}
+				}
+			}
+			
+			return target;
 		},
 
 		isVoid0 : function isVoid0 (value) {
@@ -805,7 +882,9 @@
 				if (_.isArray(v1)) {
 					l1 = v1.length;
 					l2 = v2.length;
-				} else {
+				} 
+
+				else {
 					l1 = $keys(v1).length;
 					l2 = $keys(v2).length;
 				}
@@ -838,7 +917,9 @@
 					if (!_this.isArray(el)) {
 						cb(el);
 						_this.push(tmpArr, el || {}, true);
-					} else {
+					} 
+
+					else {
 						_this.arrPush(tmpArr, _this.flattenArr(el, cb));
 						// $push.apply(tmpArr, _this.flattenArr(el));
 					}
@@ -850,7 +931,9 @@
 		append : function append (parent, child, backParent) {
 			if (this.isElement(parent) || this.isDocumentFragment(parent)) {
 				return parent.appendChild(child);
-			} else if (backParent) {
+			} 
+
+			else if (backParent) {
 				return backParent.appendChild(child);
 			}
 		},
@@ -944,6 +1027,7 @@
 			opts = opts || {};
 			var inst = opts.inst;
 			inst.define(opts.inst);
+
 			if (_.isFunction(callback)) {
 				callback.call(inst, inst.cb, inst.fb);
 			}
@@ -1001,7 +1085,9 @@
 				if (!Promise.$q.length && !Promise.inProcess) {
 					Promise.inProcess = true;
 					Promise.stopProcess(this);
-				} else {
+				} 
+
+				else {
 					Promise.stopProcess(this);
 				}
 			}
@@ -1047,7 +1133,7 @@
 			return this;
 		},
 
-		'finally' : function _finally(callback) {
+		'finally' : function _finally (callback) {
 			return this.then(callback);
 		}
 	};
@@ -1124,13 +1210,6 @@
 		}
 	};
 
-	function setMapObjValue (scope, keyStr, value) {
-		var keyArr = keyStr.split('.');
-		keyArr.reduce(function reduceFn (a, b) {
-
-		}, scope);
-	};
-
 	function getMapResult (arrObj, cb, inst) {
 		cb = cb || noop;
 		var 
@@ -1146,7 +1225,9 @@
 			while (++index < length) {
 				result[index] = cb(arrObj[index], index, inst);
 			}
-		} else if (_.isObject(arrObj)) {
+		} 
+
+		else if (_.isObject(arrObj)) {
 			arrKey = $keys(arrObj);
 			length = arrKey.length;
 
@@ -1242,13 +1323,17 @@
 			children.length && _.each(children, function genElemFromVNodeEach (child) {
 				_.append(el, genElemFromVNode(child, instance));
 			});
-		} else {
+		} 
+
+		else {
 			textCt = vNode.textContent;
 
 			if (_.isText(vNode)) {
 				el = _.clone(textNode);
 				el.textContent = textCt;
-			} else {
+			} 
+
+			else {
 				el = createFn(textCt)
 			}
 		}
@@ -1274,14 +1359,18 @@
 			el = createFn(vNode.tagName);
 			_.append(parentVEl, el, ifEl);
 			bindStaticAndUniqAttrs(vNode, el, data.static, data.uniq, data.uKeys, instance);
-		} else {
+		} 
+
+		else {
 			var textCt = vNode.textContent;
 
 			if (_.isText(vNode)) {
 				el = _.clone(textNode);
 				el.textContent = textCt;
 				_.append(parentVEl, el, ifEl);
-			} else {
+			} 
+
+			else {
 				_.append(parentVEl, createFn(textCt));
 			}
 		}
@@ -1292,8 +1381,52 @@
 	};
 
 	function appendVObjChildren (parent, vObj) {
-		_.push(parent.children, vObj);
+		var children = parent.children;
+		_.push(children, vObj);
 		vObj.parentVObj = parent;
+		vObj.index = children.length - 1;
+	};
+
+	function extendStaticAndUniqAttrs (target, source) {
+		var 
+			tData = target.data
+			, sData = source.data
+			, tStatic = tData.static
+			, sStatic = sData.static
+			, tUniq = tData.uniq
+			, sUniq = sData.uniq
+			;
+		
+		if (sStatic) {
+
+			if (!tStatic) {
+				tStatic = tData.static = $create(null);
+			}
+
+			for (var key in sStatic) {
+
+				if (key != 'class' && key != 'style') {
+					tStatic[key] = sStatic[key];
+				}
+
+				else {
+					tStatic[key] = tStatic[key] || '';
+					tStatic[key] += (tStatic[key] ? key == 'class' ? ' ' : ';' : '')
+						+ sStatic[key];
+				}
+			}
+		}
+		
+		if (sUniq) {
+
+			if (!tUniq) {
+				tUniq = tData.tUniq = $create(null);
+			}
+			_.extend(tUniq, sUniq || {});
+			tData.uKeys = $keys(tUniq);
+		}
+
+		return target;
 	};
 
 	//创建虚拟对象
@@ -1331,7 +1464,9 @@
 				if (isComponentAttr(attrKey)) {
 					isComponent = attrValue;
 				}
-			} else {
+			} 
+
+			else {
 				staticAttrs[attrKey] = attrValue;
 			}
 		}
@@ -1441,7 +1576,9 @@
 			result.isBothText = isBothTextNode(vNode1, vNode2);
 			result.isBothCmt = isBothCommentNode(vNode1, vNode2);
 			result.isEqStatic = result.isStatic && (result.isBothText || result.isBothCmt);
-		} else {
+		} 
+
+		else {
 			result.isEqFor = isBothForNode(vNode1, vNode2);
 			result.isEqStaticAttr = vNode1.data && vNode2.data && _.proxyEqual(vNode1.data.static, vNode2.data.static);
 			result.isEqTag = result.isHasTag && isTheSameTagName(vNode1, vNode2);
@@ -1474,7 +1611,9 @@
 				+ $stringify(data) + ', '
 				+ getChildResult(children, inst)
 				+ ')';
-		} else {
+		} 
+
+		else {
 			text = data.textContent;
 
 			if (_.isText(vObj)) {
@@ -1483,7 +1622,9 @@
 					return '__j._tn(' + replaceExpr($stringify(text), vObj.hasBrace) +', true)';
 				}
 				return '__j._tn(' + $stringify(text) + ')';
-			} else if(_.isComment(vObj)) {
+			} 
+
+			else if(_.isComment(vObj)) {
 				return '__j._cn(\"' + text + '\")';
 			}
 		}	
@@ -1534,7 +1675,7 @@
 			+ ')';
 	};
 
-	function createVNode (tag, data, children) {
+	function createVNode (tag, data, children, isComponent) {
 		data = data || {};
 		
 		var 
@@ -1544,6 +1685,7 @@
 			, cach = _this.cach
 			, key
 			, isStatic = !uniq
+			, compVNode
 			;
 
 		if (uniq) {
@@ -1562,6 +1704,13 @@
 		vNode.children = _.flattenArr(children || [], function vNChildCb (child) {
 			child.parentVNode = vNode;
 		});
+
+		if (isComponent) {
+			compVNode = vNode.children[0];
+			extendStaticAndUniqAttrs(compVNode, vNode);
+			return compVNode;
+		}
+
 		return vNode;
 	};
 
@@ -1619,6 +1768,11 @@
 		var keyObj = {};
 
 		if (_.isArray(value)) {
+			
+			if (defObj && key) {
+				keyObj[key] = value;
+				defineProp.call(instance, keyObj, defObj);
+			}
 			defVal(value, '__vm', instance);
 			_.each(value, function valueArrEach (arrChild, index) {
 
@@ -1626,7 +1780,9 @@
 					defineProp.call(instance, arrChild, defKey[index]);
 				}
 			});
-		} else if (_.isObject(value)) {
+		} 
+
+		else if (_.isObject(value)) {
 
 			if (defObj && key) {
 				defKey = {};
@@ -1688,7 +1844,9 @@
 
 		if (typeof selector == 'object') {
 			this.els = _.isArrayLike(selector) ? _.toArray(selector) : [selector];
-		} else {
+		} 
+
+		else {
 			this.els = _.toArray(query(selector));
 			this.context = DOC;
 		}
@@ -1753,9 +1911,13 @@
 
 			if (child.length) {
 				children = _.toArray(child);
-			} else if (_.isDocumentFragment(child)) {
+			} 
+
+			else if (_.isDocumentFragment(child)) {
 				children = _.toArray(child.children);
-			} else {
+			} 
+
+			else {
 				frag.innerHTML = child;
 				children = _.toArray(frag.childNodes);
 			}
@@ -1770,17 +1932,22 @@
 
 		css : function css (cssHtml, value) {
 			var _this = this;
+
 			if (typeof cssHtml == 'object') {
 				$keys(cssHtml).forEach(function cssEach (cssName) {
 					_this.each(function cssElEach (el) {
 						el.style[cssName] = cssHtml[cssName];
 					});
 				});
-			} else if (typeof cssHtml == 'string' && !_.isVoid0(value)) {
+			} 
+
+			else if (typeof cssHtml == 'string' && !_.isVoid0(value)) {
 				this.each(function cssEach (el) {
 					el.style[cssHtml] = value;
 				});
-			} else {
+			} 
+
+			else {
 				return getComputedStyle(this.els[0], null).getPropertyValue(cssHtml);
 			}
 			return this;
@@ -1807,8 +1974,8 @@
 
 		addClass : function addClass (className) {
 			var classArr = $split.call(className, REGEXP.spaceRE);
-			this.each(function (el) {
-				classArr.forEach(function addClassEach (cls) {
+			this.each(function addClassEach (el) {
+				classArr.forEach(function addClassArrEach (cls) {
 					el.classList.add(cls);
 				});
 			});
@@ -1817,8 +1984,8 @@
 
 		removeClass : function removeClass (className) {
 			var classArr = $split.call(className, REGEXP.spaceRE);
-			this.each(function (el) {
-				classArr.forEach(function removeClassEach (cls) {
+			this.each(function removeClassEach (el) {
+				classArr.forEach(function removeClassArrEach (cls) {
 					el.classList.remove(cls);
 				});
 			});
@@ -1853,6 +2020,7 @@
 	};
 
 	function $ (selector) {
+
 		if (_.isUndefined(selector)) {
 			return LOG.warn('Query need a selector');
 		}
@@ -2006,6 +2174,7 @@
 			match[0] = '"' + match[0] + '"';
 			_.push(tmpArr, '[' + match.toString() + ']');
 		}
+
 		return formatFlag
 			? '[' + tmpArr.join(', ') + ']'
 			: (WARN.format('on'), STRING);
@@ -2030,7 +2199,9 @@
 				str += 'return __j._n(\"' + vObj.tagName + '\", ' + attrStr + ', '
 					+ getChildResult(children, inst)
 					+ ');';
-			} else {
+			} 
+
+			else {
 				str += 'return ' 
 					+ genComponent(vObj, attrStr, inst, parent, index || '$index');
 			}
@@ -2041,48 +2212,46 @@
 	};
 
 	function genComponent (vObj, attrStr, inst, parent, index) {
+		// vObj.children = [];
 		var 
 			tagName = vObj.tagName
-			, component = JSpring.component[tagName]
-			, vNodeTemplate
+			, component = JSpring.component[tagName || 'div']
+			, componentData
 			;
 
 		if (component) {
-			parent = parent || vObj.isComponent;
-			vNodeTemplate = component.vTpl;
+			componentData = vObj.isComponent;
+			parent = parent || componentData;
+			component.vObj = inst.analyzeHtml(component.template);
+			// extendStaticAndUniqAttrs(component.vObj, vObj);
+			component.vTpl = genVNodeExpr(component.vObj, 0, inst);
+			component.props = component.props || {};
+			component.$scope = optimizeCb(defineProp
+				, component
+				, component.props
+				, {}
+				, inst);
+			_.push(vObj.children, component.vObj);
+			// $splice.call(vObj.parentVObj.children, vObj.index, 1, component.vObj);
 
-			if (vNodeTemplate) {
-				return vNodeTemplate;
-			} else {
-				component.vObj = inst.analyzeHtml(component.template);
-				component.vTpl = genVNodeExpr(component.vObj, 0, inst);
-				component.data = component.data || {};
-				component.$scope = optimizeCb(defineProp
-					, component
-					, component.data
-					, {}
-					, inst);
-				_.push(vObj.children, component.vObj);
-			}
 			return component.vTpl = '(function('
-				+ component.key
+				+ component.data
 				+ ', '
 				+ (component.index || '$index')
 				+ ', '
 				+ (component.parent || '$parent')
-				+ ') {'
-				+ 'with(__j._cp["'
+				+ ') { with(__j._cp["'
 				+ tagName
 				+ '"].$scope) {'
-				+ 'return __j._n(\"' 
-				+ vObj.tagName 
-				+ '\", ' 
-				+ attrStr + ', ['
+				+ 'return __j._n(\"'
+				+ vObj.tagName
+				+ '\", '
+				+ attrStr
+				+ ', ['
 				+ component.vTpl
-				+ '])'
-				+ '}'
-				+ '} ('
-				+ vObj.isComponent
+				+ '], true)'
+				+ '}} ('
+				+ componentData
 				+ ', '
 				+ index
 				+ ', "'
@@ -2100,9 +2269,12 @@
 	function vText (el, value, vNode) {
 		el = getIfElem(el, vNode);
 		_.push(this.cach.tickQ, function textTick () {
+
 			if (!_.isObject(value)) {
 				return el.textContent = value;
-			} else {
+			} 
+
+			else {
 				el.textContent = convertObjToValue(value, '');
 			}
 		});
@@ -2113,7 +2285,9 @@
 		
 		if (!_.isObject(value)) {
 			return el.innerHTML = value;
-		} else {
+		} 
+
+		else {
 			el.innerHTML = convertObjToValue(value, '');
 		}
 	};
@@ -2166,7 +2340,9 @@
 				vNode.ifComment = el;
 				vNode.el = _.replaceNode(vNode.ifEl, el);
 			}
-		} else {
+		} 
+
+		else {
 
 			if (!_.isComment(el)) {
 				var comment = vNode.ifComment || DOC.createComment(el.outerHTML);
@@ -2174,14 +2350,6 @@
 				vNode.el = _.replaceNode(comment, el);
 			}
 		}
-	};
-
-	function vIndex (el, value, vNode) {
-
-	};
-
-	function vParent (el, value, vNode) {
-
 	};
 
 	function vModel (el, value, vNode) {
@@ -2225,7 +2393,7 @@
 			value = convertObjToValue(value, ' ');
 		}
 
-		className = classReg && className.replace(classReg, STRING) || className;
+		className = classReg ? className.replace(classReg, STRING) : className;
 		el.className = _.trim(className + ' ' + value + ' ');
 		vNode.classReg = getNonMatchReg(value);
 	};
@@ -2319,6 +2487,15 @@
 		vNode.dataArr = keyArr;
 	};
 
+	function vParent () {
+
+	};
+
+	function vIndex () {
+
+	};
+
+
 	//自定义属性
 	var ATTR = JSpring.attr = {
 		// 'for' : 1,
@@ -2400,8 +2577,8 @@
 		src : vSrc,
 		data : vData,
 		href : vHref,
-		index : vIndex,
-		parent : vParent
+		parent : vParent,
+		index : vIndex
 	};
 
 	//module
@@ -2412,6 +2589,10 @@
 	//component
 	JSpring.component = {
 	
+	};
+
+	JSpring.addComponent = function (key, value) {
+		JSpring.component[_.lower(key)] = value;
 	};
 
 	//vm
@@ -2450,13 +2631,15 @@
 			_.each(propArr, function propEach (prop, i) {
 				_this[_this.routeAttrs[i]] = prop;
 			});
-			_this.route = JSpring.routeCach[_this.uniqId] || $oCreate(null);
-			_this.parent = JSpring.container;
+			_this.route = JSpring.routeCach[_this.uniqId] || $create(null);
+			_this.parent = JSpring.container.eq(0);
 			_this._single_page = true;
 			_this.template = _this.route.template;
 		
+		} 
+
 		//nodejs server Or singleton
-		} else {
+		else {
 			_.each(propArr, function propEach (prop, i) {
 				_this[_this.propsAttrs[i]] = prop;
 			});
@@ -2487,7 +2670,9 @@
 
 			if (!_this._server_render) {
 				return _this.analyzeHtml().render();
-			} else {
+			} 
+
+			else {
 				console.time('server render')
 				_this.genVNode().serverRender();
 			}
@@ -2502,6 +2687,7 @@
 				, spaceOrNote
 				, isEndTag
 				, isNoEndTag
+				, isComponentEndTag
 				, tagName
 				, parentTag = null
 				, lastParentTag = null
@@ -2514,7 +2700,8 @@
 				spaceOrNote = match[1];
 				tagHtml = match[2];
 				tagName = _.lower(match[4]);
-				isEndTag = _.toBool(match[3]);
+				isComponentEndTag = REGEXP.compSetRE.test(tagHtml);
+				isEndTag = _.toBool(match[3]) || isComponentEndTag;
 				isNoEndTag = REGEXP.noEndRE.test(tagName);
 				vObj = createVObj(tagName, tagHtml, _this);
 
@@ -2524,16 +2711,30 @@
 				}
 
 				if (parentTag) {
-					!REGEXP.test(REGEXP.onlySpaceRE, spaceOrNote) && appendVObjChildren(parentTag, createVTextObj(spaceOrNote, parentTag, _this));
-					!isEndTag && appendVObjChildren(parentTag, vObj);
 
-					if (isEndTag) {
-						lastParentTag = parentTag;
-						parentTag = parentTag.parentVObj;
-					} else {
+					if (!REGEXP.test(REGEXP.onlySpaceRE, spaceOrNote)) {
+						appendVObjChildren(parentTag, createVTextObj(spaceOrNote, parentTag, _this));
+					} 
+
+					if (!isEndTag) {
+						appendVObjChildren(parentTag, vObj);
 						parentTag = !isNoEndTag ? vObj : parentTag;
 					}
-				} else {
+
+					else {
+						lastParentTag = parentTag;
+
+						if (!isComponentEndTag) {
+							parentTag = parentTag.parentVObj;
+						}
+
+						else {
+							appendVObjChildren(parentTag, vObj);
+						}
+					}
+				} 
+
+				else {
 					parentTag = vObj;
 
 					if (!html) {
@@ -2541,7 +2742,7 @@
 					}
 				}
 			}
-			return html ? lastParentTag : _this;
+			return html ? parentTag || lastParentTag : _this;
 		},
 
 		pushHook : function pushHook (cb) {
@@ -2592,7 +2793,9 @@
 				if (!child.isNeedRender) {
 					child.el = collect;
 					_this.bindElement(_.getChildNodes(child.el), child.children);
-				} else {
+				} 
+
+				else {
 					child.el = genElemFromVNode(child, _this);
 					_.replaceNode(child.el, collect);
 				}
@@ -2618,10 +2821,17 @@
 				}
 				// console.time('JSpring-createEl')
 				_this.initNode();
-			} else {
+			} 
+
+			else {
 				_this.frag.appendChild(_.clone(_this.el));
 			}
+
 			_this.bootstrap();
+		},
+
+		renderFromCach : function () {
+			return _.append(_.html(this.parent, ''), this.el);
 		},
 
 		genVNode : function genVNode () {
@@ -2679,9 +2889,13 @@
 					setTextContent(prevVNode, newVNode.textContent);
 				}
 				return _this;
-			} else if (initCompare.isEqStatic) {
+			} 
+
+			else if (initCompare.isEqStatic) {
 				return _childrenDiffProxy();
-			} else if (initCompare.isEqStaticTag) {
+			} 
+
+			else if (initCompare.isEqStaticTag) {
 				nUKeys = newData.uKeys;
 				nUniq = newData.uniq;
 				oUKeys = prevData.uKeys;
@@ -2709,7 +2923,9 @@
 					});
 					return _childrenDiffProxy();
 				}
-			} else if (!initCompare.isEqTag) {
+			} 
+
+			else if (!initCompare.isEqTag) {
 
 				if (initCompare.isHasTag) {
 
@@ -2725,7 +2941,9 @@
 							});
 							return opts.pStep -= 1;
 						}
-					} else if (prevVNode.isFor) {
+					} 
+
+					else if (prevVNode.isFor) {
 
 						//delete
 						_.push(patchQ, {
@@ -2734,7 +2952,9 @@
 						});
 						return opts.nStep -= 1;
 					}
-				} else if (newVNode.tagName) {
+				} 
+
+				else if (newVNode.tagName) {
 
 					//append
 					return _.push(patchQ, {
@@ -2742,14 +2962,18 @@
 						parentVNode : parentVNode,
 						vNode : newVNode
 					});
-				} else if (prevVNode.tagName) {
+				} 
+
+				else if (prevVNode.tagName) {
 
 					//delete
 					return _.push(patchQ, {
 						type : UpdateType.DELETE,
 						vNode : prevVNode
 					});
-				} else {
+				} 
+
+				else {
 					return _this;
 				}
 			}
@@ -2825,9 +3049,12 @@
 			_this.nextTick();
 			
 			if (_this._single_page) {
-				_this.parent.html('').append(_this.frag);
+				_.append(_.html(_this.parent, ''), _this.frag);
+				_this.el = _.child(_this.parent, 0);
 				JSpring.vm[_this.uniqId || (_this.uniqId = _.makeHashCode())] = _this;
-			} else {
+			} 
+
+			else {
 				_.beforeNode(_this.frag, _this.el);
 				_.removeNode(_this.el);
 				// _.replaceNode(_this.frag, _this.el);
@@ -2870,6 +3097,9 @@
 	//文件缓存
 	JSpring.fileCach = $create(null);
 
+	//是否是返回
+	JSpring.backViewPort = false;
+
 	JSpring.router = function router (container, routes, cm) {
 		container = $(container);
 		var 
@@ -2898,12 +3128,14 @@
 		_.each(routeKeys, function routeKeysEach(r) {
 			if (REGEXP.test(REGEXP.colonREG, r)) {
 				matchRoute[r] = [];
+				matchRoute[r][1] = [];
 				matchRoute[r][0] = new RegExp($replace($replace(r, REGEXP.routeParamREG, function(match, $1) {
 					_.push(matchRoute[r][1], $1);
 					return '(\\w+)';
 				}), reserveREG, '\\$1'));
-				matchRoute[r][1] = [];
-			} else {
+			} 
+
+			else {
 				_.push(realRoute, r);
 			}
 		});
@@ -2994,7 +3226,9 @@
 				}
 			});
 			JSpring.container = container;
-		} else {
+		} 
+
+		else {
 			LOG.warn(WARN.container);
 		}
 
@@ -3081,11 +3315,15 @@
 				route = routes[hash];
 				oldhash = hash;
 
-			} else if (route = isMatchRoute(hash)) {
+			} 
+
+			else if (route = isMatchRoute(hash)) {
 				route = routes[route];
 				oldhash = hash;
 
-			} else {
+			} 
+
+			else {
 				toDefault = true;
 				oldhash = defaultRoute;
 				route = routes[defaultRoute || routeKeys[0]];
@@ -3107,7 +3345,9 @@
 						JSpring.fileCach[route.templateUrl] = tplFile;
 						instanceInit(tplFile, route.controllerFn, true);
 					});
-				} else {
+				} 
+
+				else {
 					instanceInit(tplFile, route.controllerFn, true);
 				}
 			}
@@ -3120,7 +3360,7 @@
 						hash: hash,
 						uniqId: route.uniqId,
 						template: tpl,
-						readyTransition: route.readyTransition,
+						readyTransition: route.readyTransition || '',
 						transition: route.transition || 'fadeIn',
 						transitionLeave: route.transitionLeave || '',
 						cach: route.cach || false,
@@ -3137,7 +3377,9 @@
 					JSpring.routeCach[oldhash || routeKeys[0]] = routeInfo;
 					history.replaceState(null, route.title || '', (!h5Mode ? location.pathname + '#/' : '') + oldhash);
 					!opts.noStack && _.push(stack, oldhash);
-				} else {
+				} 
+
+				else {
 					JSpring.routeCach[routeInfo.uniqId] = routeInfo;
 					_.push(stack, hash);
 				}
@@ -3155,7 +3397,17 @@
 
 				if (webpackFlag) {
 					return js(function(res) {
-						return res(cm || {}), onHashChanging = false;
+
+						if (_.isFunction(res)) {
+							res(cm || {});
+						} 
+
+						else if (_.isObject(res)) {
+							var key = $keys(res)[0];
+							new res[key](route.uniqId);
+						}
+
+						return onHashChanging = false;
 					});
 				}
 			};
@@ -3193,7 +3445,7 @@
 
 				if (matchArr = REGEXP.exec(expr, route)) {
 					matchArr = $slice.call(matchArr, 1);
-					routeParam = module.$routeParam = {};
+					routeParam = JSpring.module.$routeParam = {};
 					_.each(rootKey, function rootKeyEach(m) {
 						routeParam[m] = $shift.call(matchArr);
 					});
@@ -3215,7 +3467,9 @@
 				case 'input':
 					if ((deviceIsIOS && el.type === 'file') || el.disabled) {
 						return true;
-					} else {
+					} 
+
+					else {
 						return false;
 					}
 					break;
@@ -3240,13 +3494,16 @@
 	  * $location
 	  **/
 	function getUrl (pathname, search) {
-		return (!JSpring.router.html5Mode ? location.pathname + '#/' : '') + pathname + search;
+		return (!JSpring.router.html5Mode 
+			? location.pathname + '#/' 
+			: '') + pathname + search;
 	};
 
 	var 
 		$location = $create(null)
 		, lastPathName
 		;
+		
 	_.extend($location, location);
 
 	_.extend($location, {
@@ -3258,7 +3515,9 @@
 				setTimeout(function() {
 					lastPathName = null;
 				}, 300);
-			} else {
+			} 
+
+			else {
 				return;
 			}
 
