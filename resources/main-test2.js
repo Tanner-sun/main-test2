@@ -20,6 +20,7 @@
  *
  * @author Arnold.Zhang
  *
+ * 注释分支专用
  **/
 ;(function (global, factory) {
 	typeof exports === 'object' 
