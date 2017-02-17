@@ -2855,7 +2855,8 @@
 			if (_.isArray(vNode)) {
 				_.each(_this.vNode, function(vNodeItem){
 					_this.initNode(vNodeItem)
-				})
+				});
+				return _this;
 			}
 
 			createElemAndAppend(vNode, _this, _this.frag);
