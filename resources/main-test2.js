@@ -1292,7 +1292,7 @@
 
 	function isComponentAttr (attr) {
 		return REGEXP.test(REGEXP.compRE, attr);
-	}
+	};
 
 	function isOnAttr (attr) {
 		return REGEXP.test(REGEXP.onRE, attr);
@@ -1420,7 +1420,7 @@
 		if (sUniq) {
 
 			if (!tUniq) {
-				tUniq = tData.tUniq = $create(null);
+				tUniq = tData.uniq = $create(null);
 			}
 			_.extend(tUniq, sUniq || {});
 			tData.uKeys = $keys(tUniq);
@@ -2209,7 +2209,6 @@
 	};
 
 	function genComponent (vObj, attrStr, inst, parent, index) {
-		// vObj.children = [];
 		var 
 			tagName = vObj.tagName
 			, component = JSpring.component[tagName || 'div']
@@ -2220,7 +2219,6 @@
 			componentData = vObj.isComponent;
 			parent = parent || componentData;
 			component.vObj = inst.analyzeHtml(component.template);
-			// extendStaticAndUniqAttrs(component.vObj, vObj);
 			component.vTpl = genVNodeExpr(component.vObj, 0, inst);
 			component.props = component.props || {};
 			component.$scope = optimizeCb(defineProp
@@ -2229,7 +2227,6 @@
 				, {}
 				, inst);
 			_.push(vObj.children, component.vObj);
-			// $splice.call(vObj.parentVObj.children, vObj.index, 1, component.vObj);
 
 			return component.vTpl = '(function('
 				+ component.data
@@ -2589,6 +2586,7 @@
 	};
 
 	JSpring.addComponent = function (key, value) {
+		value.key = key;
 		JSpring.component[_.lower(key)] = value;
 	};
 
@@ -2766,16 +2764,17 @@
 				, collection = _.getChildNodes(_this.el)
 				;
 
-			// _this.el.classList.add('effect_active');
-			// _this.el.classList.add('slideUp');
 			_this.vNode.el = _this.el;
 			_this.bindElement(collection, _this.vNode.children);
-
-			//TODO
-			// _this.initNode();
-			// _this.el = _.replaceNode(_this.frag.children[0], _this.el);
 			_this.clearNoUseAttr();
-			console.timeEnd('server render')
+			return optimizeCb(
+				_this.controller
+				, _this
+				, _this.$scope
+				, $
+				, JSpring.module
+				, _this
+				), console.timeEnd('server render');
 		},
 
 		bindElement : function bindElement (collection, children) {
@@ -3462,7 +3461,7 @@
 			if (!el.tagName) {
 				return false;
 			}
-			switch ($lower.call(el.tagName)) {
+			switch (_.lower(el.tagName)) {
 				case 'button':
 				case 'select':
 				case 'textarea':
