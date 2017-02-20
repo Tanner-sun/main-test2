@@ -15,7 +15,7 @@
  */
 "use strict"
 const fs = require('fs');
-let template;
+let TEMPLATE;
 const 
  	OBJ = {}
  	, ARRAY = []
@@ -39,6 +39,7 @@ const
  	, $splice = ARRAY.splice
 
  	, $stringify = JSON.stringify
+ 	, $parse = JSON.parse
  	, emptyDataObj = $create(null)
  	;
  
@@ -86,18 +87,18 @@ const
  			;
 
  		if (uL) {
- 			_.each(uniqKeys, function uKEach (key) {
+ 			_.each(uniqKeys, (key) => {
  				var attr = vObj.uniqAttrs[key];
 
  				if (isOnAttr(key)) {
  					attr = attr.replace(REGEXP.uniqColonRE, STRING);
  				}
- 				makeGetterFn(attr, function (expr) {
+ 				makeGetterFn(attr, (expr) => {
  					_.push(_this.$errQ, 'unexpected expression : ' + expr);
  				});
  			});
  		}
- 		children.length && _.each(children, function childrenEach (child) {
+ 		children.length && _.each(children, (child) => {
  			LOG.pushStack(child, scope);
  		});
  		return _this;
@@ -127,7 +128,7 @@ const
   **/
  const REGEXP = {
  	bodyRE : /(<!--@ BODY -->)([\s\S]+)(<!-- BODY @-->)/,
- 	startEndAngleRE : /((?:\s|&[a-zA-Z]+;|<!\-\-@|[^<>]+)*)(<?(\/?)([^!<>\-\/\s]+)(?:\s*[^\s=\/>]+(?:="[^"]*"|'[^']*'|)|)+\s*>?)(?:\s*@\-\->)?/g,
+ 	startEndAngleRE : /((?:\s|&[a-zA-Z]+;|<!\-\-@|[^<>]+)*)(<?(\/?)([^!<>\/\s]+)(?:\s*[^\s=\/>]+(?:="[^"]*"|='[^']*'|)|)+\s*\/?>?)(?:\s*@\-\->)?/g,
  	noEndRE : /^(?:input|br|img|link|hr|base|area|meta|embed|frame)$/,
  	attrsRE : /\s+([^\s=<>]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s<>]+))/g,
  	routeParamREG : /\:([^\:\-\.]+)/g,
@@ -145,6 +146,8 @@ const
  	objRE : /\{['"]?([^:()]+['"]?\s*\:\s*[^,],?\s*)+\}/,
  	styleRE : /([a-zA-Z]+):([^:;]+)/g,
  	forRE : /\:for/g,
+ 	compRE : /(?:lv-|:)component/g,
+	compSetRE : /<[^\/]+\/>/,
  	ifRE : /(?:lv-|:)if/g,
  	onRE : /(?:lv-|:)on/g,
  	modelRE : /(?:lv-|:)model/g,
@@ -158,6 +161,13 @@ const
  	lineRE : /\\n|\\r|\\t|\s/g,
  	nextLRE : /\\n|\\r|\\t/g,
  	spaceRE : /\s+/g,
+ 	capitalRE : /[A-Z]/g,
+ 	modelRE : /\{MODEL\}/g,
+ 	fnRE : /\{FN\}/g,
+ 	jsRE : /\{JS\}/,
+ 	cssRE : /\{CSS\}/,
+ 	metaRE : /\{META\}/,
+ 	templateRE : /\{TEMPLATE\}/,
 
  	exec (regExp, word) {
  	  var result = regExp.exec(word);
@@ -193,11 +203,23 @@ const
  * _
  **/
 const _ = {
+	lower (string) {
+		return string.toLowerCase
+			&& string.toLowerCase();
+	},
+
+	capitalLower (str) {
+		return REGEXP.replace(str, REGEXP.capitalRE, (match) => {
+			return '-' + $lower.call(match);
+		});
+	},
+
 	isNaN (value) {
 		return _.isNumber(value) && value != value;
 	},
 
 	uniqPush (arr, child) {
+
 		if (_.isArray(arr)) {
 			return !_.inArray(arr, child) && _.push(arr, child);
 		}
@@ -266,11 +288,15 @@ const _ = {
 			while (i--) {
 				if (arr[i] == obj) return i;
 			}
-		} else {
+
+		} 
+
+		else {
 
 			while (i--) {
 				if (arr[i] === obj) return i;
 			}
+
 		}
 		return -1;
 	},
@@ -294,6 +320,7 @@ const _ = {
 			for (let i = 0; i < len; ++i) {
 				arr[i] = arrayLikeObj[i];
 			}
+
 		}
 		return arr;
 	},
@@ -303,6 +330,7 @@ const _ = {
 		for (let key in target) {
 			source[key] = target[key];
 		}
+
 		return source;
 	},
 
@@ -325,8 +353,12 @@ const _ = {
 				if (!this.isVoid0(result = callback(arr[i], i, arr))) {
 					return result;
 				}
+
 			}
-		} else if (this.isObject(arr)) {
+
+		} 
+
+		else if (this.isObject(arr)) {
 			attrArr = $keys(arr);
 			l = attrArr.length;
 
@@ -336,7 +368,9 @@ const _ = {
 				if (!this.isVoid0(result = callback(arr[key], key, arr))) {
 					return result;
 				}
+
 			}
+
 		}
 	},
 
@@ -351,9 +385,12 @@ const _ = {
 
 				if (_this.isArray(el)) {
 					$push.apply(tmpArr, _this.flattenArr(el));
-				} else {
+				} 
+
+				else {
 					_this.push(tmpArr, el || {});
 				}
+
 			});
 		}
 		return tmpArr;
@@ -395,15 +432,13 @@ class VNode {
 
 const publicGen = (value) => {
 	return value;
-	// value = value.replace(REGEXP.brackRE, function(match, $1) {
-	// 	return '[' + '\'"+' + $1  + '+"\']';
-	// });
-	// return '"' + value + '"';
 };
 
 const  
 	genText = publicGen 
 	, genHtml = publicGen
+	, genIndex = publicGen
+	, genParent = publicGen
 	;
 
 const genModel = (value) => {
@@ -427,38 +462,86 @@ const genOn = (value) => {
 		match[0] = '"' + match[0] + '"';
 		_.push(tmpArr, '[' + match.toString() + ']');
 	}
+
 	return formatFlag
 		? '[' + tmpArr.join(', ') + ']'
 		: (WARN.format('on'), STRING);
-
-	// value = value.replace(REGEXP.curveRE, function(match, $1) {
-	// 	let 
-	// 		arr = $1.split(',')
-	// 		,str = ''
-	// 		;
-	// 	arr.forEach(function(el) {
-	// 		str += '\'"+' + el + '+"\',';
-	// 	});
-	// 	return '(' + str.substring(0, str.length - 1) + ')';
-	// });
-	// return '"' + value + '"';
 }
 
-const genFor = (vObj, attrStr) => {
+const genFor = (vObj, attrStr, inst) => {
 	let 
 		match
 		, children = vObj.children
+		, str
+		, parent
+		, index
 		;
 			
 	if (match = vObj.isFor.match(REGEXP.forExpRE)) {
-		return '__j._mp(' + match[2] + ', function(' + match[1] + ', '
-			+ (match[3] || '$index') + ') {'
-			+ 'return __j._n(\"' + vObj.tagName + '\", ' + attrStr + ', '
-			+ getChildResult(children)
-			+ ');'
-			+ '})';
+		index = match[3];
+		parent = match[2];
+		str = '__j._mp(' + parent + ', function(' + match[1] + ', '
+			+ (index || '$index') + ') {';
+
+		if (!vObj.isComponent) {
+			str += 'return __j._n(\"' + vObj.tagName + '\", ' + attrStr + ', '
+				+ getChildResult(children, inst)
+				+ ');';
+		}
+
+		else {
+			str += 'return ' 
+				+ genComponent(vObj, attrStr, inst, parent, index || '$index');
+		}
+
+		str += '})';
+		return str;
 	}
 	return WARN.format('for'), STRING;
+};
+
+const genComponent = (vObj, attrStr, inst, parent, index) => {
+	var 
+		tagName = vObj.tagName
+		, component = Compiler.component[tagName || 'div']
+		, componentData
+		;
+
+	if (component) {
+		componentData = vObj.isComponent;
+		parent = parent || componentData;
+		component.vObj = inst.analyzeHtml(component.template);
+		component.vTpl = genVNodeExpr(component.vObj, 0, inst);
+		component.props = component.props || {};
+		component.$scope = component.props;
+		_.push(vObj.children, component.vObj);
+		return component.vTpl = '(function('
+			+ component.data
+			+ ', '
+			+ (component.index || '$index')
+			+ ', '
+			+ (component.parent || '$parent')
+			+ ') { with(__j._cp["'
+			+ tagName
+			+ '"].$scope || {}) {'
+			+ 'return __j._n(\"'
+			+ vObj.tagName
+			+ '\", '
+			+ attrStr
+			+ ', ['
+			+ component.vTpl
+			+ '], true)'
+			+ '}} ('
+			+ componentData
+			+ ', '
+			+ index
+			+ ', "'
+			+ parent
+			+ '"))';
+	}
+	return '__j._n("'
+		+ vObj.tagName
+		+ '")';
 };
 
 const  
@@ -490,14 +573,21 @@ const vShow = (el, value) => {
 
 		if (matchArr = el.start.match(REGEXP.styleMRE)) {
 			el.start = el.start.replace(REGEXP.styleMRE, 'style="' + matchArr[1] + ';display:block;"');
-		} else {
+		} 
+
+		else {
 			el.start += ' style="display:block;"';
 		}
-	} else {
+
+	} 
+
+	else {
 
 		if (matchArr = el.start.match(REGEXP.styleMRE)) {
 			el.start = el.start.replace(REGEXP.styleMRE, 'style="' + matchArr[1] + ';display:none;"');
-		} else {
+		} 
+
+		else {
 			el.start += ' style="display:none;"';
 		}
 	}
@@ -530,7 +620,9 @@ const vClass = (el, value, vNode) => {
 
 	if (matchArr = el.start.match(REGEXP.classRE)) {
 		el.start = el.start.replace(REGEXP.classRE, 'class="' + matchArr[1] + ' ' + value + '"');
-	} else {
+	} 
+
+	else {
 		el.start += ' class="' + value + '"';
 	}
 };
@@ -552,7 +644,9 @@ const vStyle = (el, value, vNode) => {
 				keyArr = $keys(value);
 			}
 		}
-	} else {
+	} 
+
+	else {
 		value = convertStyleStrToObj(value);
 		keyArr = $keys(value);
 	}
@@ -563,7 +657,9 @@ const vStyle = (el, value, vNode) => {
 
 	if (matchArr = el.start.match(REGEXP.styleMRE)) {
 		el.start = el.start.replace(REGEXP.styleMRE, 'style="' + matchArr[1] + ';' + str + '"');
-	} else {
+	} 
+
+	else {
 		el.start += ' style="' + str + '"';
 	}
 };
@@ -593,27 +689,41 @@ const vHref = (el, value, vNode) => {
 
 const vOn = (el, value, vNode) => {
 	return;
-	// el.start += ' :on="' + value + '"';
 };
 
 const vText = (el, value) => {
 	el.content = value;
-	// el.start += ' :text="' + value + '"';
 };
 
 const vHtml = (el, value) => {
 	el.content = value;
-	// el.start += ' :html="' + value + '"';
 };
 
 const vModel = (el, value) => {
 	return;
-	// el.start += ' :model="' + value + '"';
 };
 
 const vData = (el, value) => {
-	return;
-	// el.start += ' :data="' + value + '"';
+	let 
+		keyArr
+		;
+
+	if (!_.isObject(value)) {
+		value = convertStyleStrToObj(value);
+	}
+
+	keyArr = $keys(value);
+	_.each(keyArr, (key, i) => {
+		el.start += ' data-' + _.capitalLower(key) + '="' + value[key] + '"';
+	});
+};
+
+const vParent = () => {
+
+};
+
+const vIndex = () => {
+
 };
 
 //自定义属性
@@ -631,11 +741,13 @@ const attr = {
 	attr : 1,
 	src : 1,
 	data : 1,
-	href : 1
+	href : 1,
+	index : 1,
+	parent : 1
 };
 
 //自定义属性优先级
-const prio = {
+const PRIO = {
 	text : 200,
 	html : 200,
 	show : 200,
@@ -649,7 +761,10 @@ const prio = {
 	attr : 100,
 	src : 100,
 	data : 100,
-	href : 100
+	href : 100,
+	component : 400,
+	index : 500,
+	parent : 500
 };
 
 //自定义属性字符串解析
@@ -668,7 +783,10 @@ const gen = {
 	attr : genAttr,
 	src : genSrc,
 	data : genData,
-	href : genHref
+	href : genHref,
+	component : genComponent,
+	index : genIndex,
+	parent : genParent
 };
 
 //自定义属性对应处理方法
@@ -686,11 +804,17 @@ const direct = {
 	attr : vAttr,
 	src : vSrc,
 	data : vData,
-	href : vHref
+	href : vHref,
+	parent : vParent,
+	index : vIndex
 };
 
 const isForAttr = (attribute) => {
 	return REGEXP.test(REGEXP.forRE, attribute);
+};
+
+const isComponentAttr = (attribute) => {
+	return REGEXP.test(REGEXP.compRE, attribute);
 };
 
 const isIfAttr = (attribute) => {
@@ -736,6 +860,7 @@ const createVObj = (tagName, html) => {
 		, staticAttrs = $create(null)
 		, isStatic = true
 		, isFor = false
+		, isComponent = false
 		, isNeedRender = false
 		, match
 		;
@@ -759,7 +884,14 @@ const createVObj = (tagName, html) => {
 			if (isIfAttr(attrKey) || isModelAttr(attrKey) || isOnAttr(attrKey)) {
 				isNeedRender = true;
 			}
-		} else {
+
+			if (isComponentAttr(attrKey)) {
+				isComponent = attrValue;
+			}
+
+		} 
+
+		else {
 			staticAttrs[attrKey] = attrValue;
 		}
 	}
@@ -772,6 +904,7 @@ const createVObj = (tagName, html) => {
 		children : [],
 		isElem : true,
 		isFor : isFor,
+		isComponent : isComponent,
 		isNeedRender : isNeedRender,
 		isStatic : isStatic,
 		nodeType : 1
@@ -798,7 +931,7 @@ const createVTextObj = (text, parentVObj) => {
 	};
 };
 
-const genVNodeExpr = (vObj) => {
+const genVNodeExpr = (vObj, index, inst) => {
 	let 
 		data = getVObjData(vObj)
 		, children = vObj.children
@@ -808,14 +941,16 @@ const genVNodeExpr = (vObj) => {
 	if (_.isElement(vObj)) {
 
 		if (!vObj.isStatic) {
-			return genUniqVNodeExpr(vObj);
+			return genUniqVNodeExpr(vObj, inst);
 		}
 		return '__j._n(\"'
 			+ vObj.tagName + '\", '
 			+ $stringify(data) + ', '
-			+ getChildResult(children)
+			+ getChildResult(children, inst)
 			+ ')';
-	} else {
+	} 
+
+	else {
 		text = data.textContent;
 
 		if (_.isText(vObj)) {
@@ -824,13 +959,15 @@ const genVNodeExpr = (vObj) => {
 				return '__j._tn(' + replaceExpr($stringify(text), vObj.hasBrace) +', true)';
 			}
 			return '__j._tn(' + $stringify(text) + ')';
-		} else if(_.isComment(vObj)) {
+		} 
+
+		else if(_.isComment(vObj)) {
 			return '__j._cn(\"' + text + '\")';
 		}
 	}	
 };
 
-const genUniqVNodeExpr = (vObj) => {
+const genUniqVNodeExpr = (vObj, inst) => {
 	let 
 		children = vObj.children
 		, uniqKeys = vObj.uniqKeys
@@ -861,14 +998,18 @@ const genUniqVNodeExpr = (vObj) => {
 	res += '}';
 
 	if (vObj.isFor) {
-		return genFor(vObj, res);
+		return genFor(vObj, res, inst);
+	}
+
+	if (vObj.isComponent) {
+		return genComponent(vObj, res, inst);
 	}
 
 	return '__j._n(\"' 
 		+ vObj.tagName 
 		+ '\", ' 
 		+ res + ', '
-		+ getChildResult(children)
+		+ getChildResult(children, inst)
 		+ ')';
 };
 
@@ -892,9 +1033,9 @@ const getVObjData = (obj) => {
 	};
 };
 
-const getChildResult = (children) => {
+const getChildResult = (children, inst) => {
 	return children.length 
-		? '[' + getMapResult(children, genVNodeExpr) + ']' 
+		? '[' + getMapResult(children, genVNodeExpr, inst) + ']' 
 		: '[]';
 };
 
@@ -906,7 +1047,7 @@ const getStrValue = (str) => {
 	return str;
 };
 
-const getMapResult = (arrObj, cb) => {
+const getMapResult = (arrObj, cb, inst) => {
 	let 
 		result = []
 		, index = -1
@@ -918,15 +1059,19 @@ const getMapResult = (arrObj, cb) => {
 		length = arrObj.length;
 
 		while (++index < length) {
-			result[index] = cb(arrObj[index], index);
+			result[index] = cb(arrObj[index], index, inst);
 		}
-	} else if (_.isObject(arrObj)) {
+
+	} 
+
+	else if (_.isObject(arrObj)) {
 		arrKey = $keys(arrObj);
 		length = arrKey.length;
 
 		while (++index < length) {
-			result[index] = cb(arrObj[arrKey[index]], arrKey[index]);
+			result[index] = cb(arrObj[arrKey[index]], arrKey[index], inst);
 		}
+
 	}
 	return result;
 };
@@ -941,7 +1086,49 @@ const replaceExpr = (template, exprArr) => {
 	return template;
 };
 
-function makeGetterFn (body, callback) {
+const extendStaticAndUniqAttrs = (target, source) => {
+	let 
+		tData = target.data
+		, sData = source.data
+		, tStatic = tData.static
+		, sStatic = sData.static
+		, tUniq = tData.uniq
+		, sUniq = sData.uniq
+		;
+	
+	if (sStatic) {
+
+		if (!tStatic) {
+			tStatic = tData.static = $create(null);
+		}
+
+		for (let key in sStatic) {
+
+			if (key != 'class' && key != 'style') {
+				tStatic[key] = sStatic[key];
+			}
+
+			else {
+				tStatic[key] = tStatic[key] || '';
+				tStatic[key] += (tStatic[key] ? key == 'class' ? ' ' : ';' : '')
+					+ sStatic[key];
+			}
+		}
+	}
+	
+	if (sUniq) {
+
+		if (!tUniq) {
+			tUniq = tData.tUniq = $create(null);
+		}
+		_.extend(tUniq, sUniq || {});
+		tData.uKeys = $keys(tUniq);
+	}
+
+	return target;
+};
+
+const makeGetterFn = (body, callback) => {
 	try {
 		return new Function('__j', body + ';');
 	} catch (e) {
@@ -961,7 +1148,7 @@ const isOnAttr = (attribute) => {
 	return REGEXP.test(REGEXP.onRE, attribute);
 };
 
-const createVNode = (tag, data, children) => {
+const createVNode = (tag, data, children, isComponent) => {
 	data = data || {};
 	children = _.flattenArr(children || []);
 	
@@ -972,12 +1159,13 @@ const createVNode = (tag, data, children) => {
 		, cach = _this.cach
 		, key
 		, isStatic = true
+		, compVNode
 		;
 
 	if (uniq) {
 		isStatic = false;
 		data.uKeys = $keys(uniq).sort((a, b) => {
-			return prio[b] - prio[a];
+			return PRIO[b] - PRIO[a];
 		});
 	}
 
@@ -991,6 +1179,13 @@ const createVNode = (tag, data, children) => {
 	children.length && _.each(children, (child) => {
 		child.parentVNode = vNode;
 	});
+
+	if (isComponent) {
+		compVNode = vNode.children[0];
+		extendStaticAndUniqAttrs(compVNode, vNode);
+		return compVNode;
+	}
+
 	return vNode;
 };
 
@@ -1011,7 +1206,9 @@ const createElFn = (tagName) => {
 			start : '<' + tagName,
 			end : '</' + tagName + '>'
 		};
-	} else {
+	} 
+
+	else {
 		obj = {
 			start : '<' + tagName,
 			end : ''
@@ -1052,12 +1249,16 @@ const createElem = (vNode, instance) => {
 			}
 		}
 		el.start += (!REGEXP.noEndRE.test(vNode.tagName) ? '>' : ' />') + (el.content || '');
-	} else {
+	} 
+
+	else {
 		let textCt = vNode.textContent;
 
 		if (_.isText(vNode)) {
 			el = createTextFn(textCt);
-		} else {
+		} 
+
+		else {
 			el = createCommentFn(textCt);
 		}
 	}
@@ -1087,6 +1288,7 @@ const convertStyleStrToObj = (str) => {
 	while ((attrMatch = REGEXP.styleRE.exec(str)) != null) {
 		styleObj[attrMatch[1]] = attrMatch[2];
 	}
+
 	return styleObj;
 };
 
@@ -1120,17 +1322,20 @@ const createLink = (linkArr) => {
 
 const Compiler = {
 
-	render (url, model, opts) {
+	render (filePath, options = {}) {
+		const config = options.config || {};
 		this.start = Date.now();
-		template = fs.readFileSync(url, 'utf8');
+		TEMPLATE = fs.readFileSync(filePath, 'utf8');
 		this.outerHTML = '';
-		this.redis = opts.redis;
-		this.vNodeTemplate = opts.vNodeTpl;
-		this.js = createScript(model.js || []);
-		this.css = createLink(model.css || []);
-		this.template = template.match(REGEXP.bodyRE)[2];
-		template = template.replace(REGEXP.bodyRE, '$1BODY$3');
-		this.$scope = model || {};
+		this.redis = config.redis || '';
+		this.redisKey = config.redisKey || '';
+		this.vNodeTemplate = config.vNodeTemplate;
+		this.js = createScript(config.js || []);
+		this.css = createLink(config.css || []);
+		this.metaUrl = config.metaUrl;
+		this.template = TEMPLATE.match(REGEXP.bodyRE)[2];
+		TEMPLATE = TEMPLATE.replace(REGEXP.bodyRE, '$1BODY$3');
+		this.$scope = options.model || {};
 		return this.init();
 	},
 
@@ -1141,7 +1346,7 @@ const Compiler = {
 			.renderTpl();
 	},
 
-	analyzeHtml () {
+	analyzeHtml (html) {
 		let 
 			_this = this
 			, match
@@ -1150,8 +1355,10 @@ const Compiler = {
 			, spaceOrNote
 			, isEndTag
 			, isNoEndTag
+			, isComponentEndTag
 			, tagName
 			, parentTag = null
+			, lastParentTag = null
 			, vObj
 			, scope
 			;
@@ -1161,12 +1368,13 @@ const Compiler = {
 			return _this;
 		}
 
-		while (match = REGEXP.startEndAngleRE.exec(_this.template)) {
+		while (match = REGEXP.startEndAngleRE.exec(html || _this.template)) {
 			tagAndSpaceHtml = match[0];
 			spaceOrNote = match[1];
 			tagHtml = match[2];
 			tagName = _.lower(match[4]);
-			isEndTag = _.toBool(match[3]);
+			isComponentEndTag = REGEXP.compSetRE.test(tagHtml);
+			isEndTag = _.toBool(match[3]) || isComponentEndTag;
 			isNoEndTag = REGEXP.noEndRE.test(tagName);
 			vObj = createVObj(tagName, tagHtml);
 
@@ -1176,25 +1384,45 @@ const Compiler = {
 			}
 
 			if (parentTag) {
-				!REGEXP.test(REGEXP.onlySpaceRE, spaceOrNote) && appendVObjChildren(parentTag, createVTextObj(spaceOrNote, parentTag));
-				!isEndTag && appendVObjChildren(parentTag, vObj);
-				parentTag = isEndTag 
-					? parentTag.parentVObj 
-					: !isNoEndTag
-					? vObj
-					: parentTag;
+
+				if (!REGEXP.test(REGEXP.onlySpaceRE, spaceOrNote)) {
+					appendVObjChildren(parentTag, createVTextObj(spaceOrNote, parentTag, _this));
+				} 
+
+				if (!isEndTag) {
+					appendVObjChildren(parentTag, vObj);
+					parentTag = !isNoEndTag ? vObj : parentTag;
+				}
+
+				else {
+					lastParentTag = parentTag;
+
+					if (!isComponentEndTag) {
+						parentTag = parentTag.parentVObj;
+					}
+
+					else {
+						appendVObjChildren(parentTag, vObj);
+					}
+
+				}
+
 			} else {
-				parentTag = _this.vObj = vObj;
+				parentTag = vObj;
+
+				if (!html) {
+					_this.vObj = vObj;
+				}
 			}
 		}
 		console.log('compile norm : ' + (Date.now() - this.start) + 'ms');
-		return _this;
+		return html ? parentTag || lastParentTag : _this;
 	},
 
 	analyzeTplStr () {
 		return 'with(this.$scope){ return ' 
 			+ (this.vObj 
-			? genVNodeExpr(this.vObj) 
+			? genVNodeExpr(this.vObj, 0, this) 
 			: '__j._n("div")') 
 			+ ';}';
 	},
@@ -1213,6 +1441,7 @@ const Compiler = {
 			}
 			_this.vNode = _this.renderFn.call(_this, _this);
 		} catch(err) {
+			console.log(_this.vNodeTemplate);
 			return LOG.warn('TIP : ' + err.message), _this;
 		}
 		return _this;
@@ -1238,10 +1467,14 @@ const Compiler = {
 	clearNoUseAttr () {
 
 		if (this.redis)  {
-			this.redis.set('mainPageVNodeTpl', this.vNodeTemplate, (err, reply) => {
-				console.log('redis has cach the mainPage vNode template');
+			this.redis.set(this.redisKey, this.vNodeTemplate, (err, reply) => {
+
+				if (!err) {
+					console.log('redis has cach the ' + this.redisKey + 'template');
+				}
 			});
-			this.redis.expire('mainPageVNodeTpl', 10);
+			//一天缓存期限
+			this.redis.expire(this.redisKey, 60 * 60 * 24);
 		}
 
 		delete this.vObj;
@@ -1249,19 +1482,48 @@ const Compiler = {
 		delete this.vNodeTemplate;
 	},
 
+	addComponent (key, value) {
+		value.template = fs.readFileSync(value.url, 'utf8');
+		value.key = key;
+		this.component[_.lower(key)] = value;
+	},
+
+	component : {},
+
+	transferComponent () {
+		const comp = {};
+		for(let key in this.component) {
+			const 
+				obj = {}
+				, cp = this.component[key]
+				;
+
+			obj.data = cp.data;
+			obj.$scope = cp.$scope;
+			obj.template = cp.template;
+			comp[cp.key] = obj;
+		}
+		return comp;
+	},
+
 	renderTpl () {
-		// console.log(this.vNodeTemplate);
-		// console.log(this.outerHTML);
-		let tpl = template
-			.replace(/\{MODEL\}/g, $stringify(this.$scope))
-			.replace(/\{FN\}/g, "new Function('__j', '" 
+
+		if (this.metaUrl) {
+			TEMPLATE = TEMPLATE.replace(REGEXP.metaRE, fs.readFileSync(this.metaUrl, 'utf8'));
+		}
+
+		let tpl = TEMPLATE
+			.replace(REGEXP.modelRE, $stringify(this.$scope))
+			.replace(REGEXP.bodyRE, this.outerHTML)
+			.replace(REGEXP.jsRE, this.js)
+			.replace(REGEXP.cssRE, this.css)
+			.replace(REGEXP.templateRE, $stringify(this.transferComponent()))
+			.replace(REGEXP.fnRE, "new Function('__j', '" 
 				+ this.vNodeTemplate
 					.replace(/'/g, '"')
 					.replace(REGEXP.nextLRE, '') 
 				+ "');")
-			.replace(REGEXP.bodyRE, this.outerHTML)
-			.replace(/\{JS\}/, this.js)
-			.replace(/\{CSS\}/, this.css);
+			;
 		this.clearNoUseAttr();
 		return tpl;
 	}
@@ -1273,36 +1535,89 @@ _.extend(Compiler, {
 	_tn : createVTextNode,
 	_cn : createVCommentObj,
 	_mp : getMapResult,
-	_v : getStrValue
+	_v : getStrValue,
+	_cp : Compiler.component
 });
 
 module.exports = Compiler;
 
+
+
+
+
 //test case
-// Compiler.render('templates/mainPage.lv', {
-// 	nameArr: ['1aaa', '2bbb', '3aaa', '4bbb'],
-// 	styleObj : {
-// 		backgroundColor : 'red'
-// 	},
-// 	cc : 'aaabbb',
-// 	attrObj: {
-// 		src: 'abc'
-// 	},
-// 	toggleIf : "",
-// 	nameIndexArr : [1,2,3,4],
-//         	styleStr : 'color:pink;fontSize:14px;',
-// }, {}, {layout:'index.html'});
-// var tar = [];
-// while((tar = REGEXP.attrsRE.exec(`
-// 	<div :for="let el in nameArr" style="display:block;" class="dd   ccc" 
-//       :class="{true: 'active', false : 'unactive'}[nameArr.length < 1]"
-//       :if="nameArr.length < 10"
-//       :on="click:toggleIf(el, $index)"
-//       disabled
-//       checked="1">
-//                   <h1>a    {{el}}   a</h1>
-//                   <h2 :text="nameIndexArr[$index]"></h2>
-//     </div>
-// 	`)) != null) {
-// 	console.log(tar)
+// var component = [
+//     {
+//         id : 'SearchInput',
+//         data : 'word',
+//         url : './templates/SearchInput.tpl'
+//     },
+//     {
+//         id : 'Swiper',
+//         data : 'list',
+//         url : './templates/Swiper.tpl'
+//     },
+//     {
+//         id : 'Hot',
+//         data : 'list',
+//         url : './templates/Hot.tpl'
+//     },
+//     {
+//         id : 'HotItem',
+//         data : 'obj',
+//         url : './templates/HotItem.tpl'
+//     },
+//     {
+//         id : 'Special',
+//         data : 'list',
+//         url : './templates/Special.tpl'
+//     }
+// ];
+
+// for (let cp of component) {
+// 	Compiler.addComponent(cp.id, cp);
 // }
+
+// Compiler.render('templates/mainPage.tpl', {model : {
+// 	keyword : '',
+// 	startSlide : 1,
+// 	swiperList : [],
+// 	hotList : [],
+// 	word : '',
+// 	loadedFlag : false,
+// 	specialList : []
+// }, config : {}});
+
+
+
+// Compiler.render('templates/visaList.tpl', {
+// 	model : {
+// 		visaList : [],
+// 		city : 'ss',
+// 		pageIndex : 1,
+// 		paixu : true,
+// 		quanbu : true,
+// 		changzhu : true,
+// 		loadedFlag : true,
+// 		filterStyleFn (flag) {
+// 			return flag ? {
+
+// 			} : {
+// 				color : '#d30775'
+// 			};
+// 		},
+// 		goBack () {
+// 		},
+// 		toggleIcon (key) {
+// 			this[key] = !this[key];
+// 		},
+// 		goVisaDetail (productId, goodsId) {
+// 		}
+// 	}, config : {
+// 		url: 'templates/visaList.tpl',
+// 		css: ['public/css/visaList/visaList.css'],
+// 		js: ['public/js/visaList/visaListService.js'],
+// 		metaUrl: 'templates/meta.tpl'
+// 	}
+// });
+
