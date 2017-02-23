@@ -177,6 +177,11 @@
 			return 'not match the format of {1}'
 				.replace(/\{\d\}/g, attr);
 		},
+		missComp : function (tag) {
+			return '`{1}` is not a component'
+				.replace(/\{\d\}/g, tag);
+		},
+		h5Semantic : 'dont`t wrap block-element inside <p>',
 		container : 'the viewport haven`t found the container to place in'
 	};
 
@@ -185,8 +190,8 @@
 	 * REGEXP
 	 **/
 	var REGEXP = {
-		startEndAngleRE : /((?:\s|&[a-zA-Z]+;|<!\-\-@|[^<>]+)*)(<?(\/?)([^!<>\/\s]+)(?:\s*[^\s=\/>]+(?:="[^"]*"|='[^']*'|)|)+\s*\/?>?)(?:\s*@\-\->)?/g,
-		noEndRE : /^(?:input|br|img|link|hr|base|area|meta|embed|frame)$/,
+		startEndAngleRE : /((?:\s|&[a-zA-Z]+;|<!\-\-@|[^<>]+)*)(<?(\/?)([^!<>\/\s]+)(?:\s*[^\s=\/>]+(?:="[^"]*"|='[^']*'|=[^'"\s]+|)|)+\s*\/?>?)(?:\s*@\-\->)?/g,
+		ghostRE : /^(?:input|br|img|link|hr|base|area|meta|embed|frame)$/,//虚元素
 		attrsRE : /\s+([^\s=<>]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s<>]+))/g,
 		routeParamREG : /\:([^\:\-\.]+)/g,
 		uniqNoteRE : /<!\-\-@\s*([^@]+)\s*@\-\->/g,
@@ -2269,9 +2274,11 @@
 				+ parent
 				+ '"))';
 		}
-		return '__j._n("'
-			+ vObj.tagName
-			+ '")';
+
+		return LOG.warn(WARN.missComp(tagName)),
+			'__j._n("'
+				+ vObj.tagName
+				+ '")';
 	};
 
 	/**
@@ -2714,7 +2721,7 @@
 				tagName = _.lower(match[4]);
 				isComponentEndTag = REGEXP.compSetRE.test(tagHtml);
 				isEndTag = _.toBool(match[3]) || isComponentEndTag;
-				isNoEndTag = REGEXP.noEndRE.test(tagName);
+				isNoEndTag = REGEXP.ghostRE.test(tagName);
 				vObj = createVObj(tagName, tagHtml, _this);
 
 				if (REGEXP.test(REGEXP.uniqLeftNoteRE, spaceOrNote)) {
@@ -2800,12 +2807,16 @@
 				, firstchild
 				;
 
+			if (collection.length != children.length) {
+				return LOG.warn(WARN.h5Semantic);
+			}
+
 			_.each(children, function (child, index) {
 				var collect = collection[index];
 
 				if (!child.isNeedRender) {
 					child.el = collect;
-					_this.bindElement(_.getChildNodes(child.el), child.children);
+					_this.bindElement(_.getChildNodes(child.el) || [], child.children || []);
 				} 
 
 				else {
