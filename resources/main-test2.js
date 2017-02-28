@@ -199,6 +199,7 @@
 		commentRE : /\s*<!--\s*|\s*-->\s*/g,
 		uniqLeftNoteRE : /<!\-\-@/g,
 		errMsgRE : / is not defined/,
+		funcStrRE : /^\s*function/,
 		colonREG : /\s*\:\s*/,
 		rhashcodeRE : /\d\.\d{4}/,
 		uniqRE : /(?:lv-|:)([^-:]+)/,
@@ -309,6 +310,10 @@
 	 * _
 	 **/
 	var _ = {
+
+		isFunctionStr : function isFunctionStr (value) {
+			return REGEXP.funcStrRE.test(value);
+		},
 		
 		capitalLower : function capitalLower (str) {
 			return REGEXP.replace(str, REGEXP.capital, function (match) {
@@ -2344,7 +2349,10 @@
 				}
 
 				el.addEventListener(type, vNode.evtObj[type] = function onCallback ($event) {
-					return optimizeCb(callback, _this.$scope, args.concat([$event]));
+					return optimizeCb(callback
+						, _this.$scope
+						, args.concat([$event])
+						);
 				}, false);
 			}
 		});
@@ -3064,9 +3072,9 @@
 		},
 
 		clearNoUseAttr : function clearNoUseAttr () {
-			delete this.vObj;
-			delete this.template;
-			delete this.vNodeTemplate;
+			this.vObj = null;
+			this.template = null;
+			this.vNodeTemplate = null;
 		},
 
 		bootstrap : function bootstrap () {
@@ -3116,6 +3124,35 @@
 	  **/
 
 	var lastPathName = '';
+
+	//fn
+	JSpring.fn = {
+		funcFormat : function funcFormat (obj) {
+			var _this = this;
+			_.each(obj, function (value, key) {
+
+				if (_.isFunctionStr(value)) {
+					obj[key] = new Function('return ' + value + ';')();
+				}
+
+				else if (_.isObject(value)) {
+					_this.funcFormat(value);
+				}
+			});
+			return obj;
+		},
+
+		addMultiComponent : function addMultiComponent (obj) {
+			var _this = this;
+			_.each(obj, function(comp, key) {
+				JSpring.addComponent(key, {
+					data: comp.data,
+					$scope: _this.funcFormat(comp.$scope),
+					template: comp.template
+				});
+			});
+		}
+	};
 
 	//浏览历史栈
 	JSpring.Stack = [];
@@ -3370,16 +3407,16 @@
 				if (!tplFile) {
 					_.getText(route.templateUrl).then(function(tplFile) {
 						JSpring.fileCach[route.templateUrl] = tplFile;
-						instanceInit(tplFile, route.controllerFn, true);
+						instanceInit(tplFile, true);
 					});
 				} 
 
 				else {
-					instanceInit(tplFile, route.controllerFn, true);
+					instanceInit(tplFile, true);
 				}
 			}
 
-			function instanceInit (tpl, js, webpackFlag) {
+			function instanceInit (tpl, webpackFlag) {
 				var 
 					viewport
 					, loc
@@ -3395,7 +3432,7 @@
 
 				if (route.readyTransition) {
 					_.each(routeKeys, function routeKeysEach (rt) {
-						delete routes[rt].readyTransition;
+						routes[rt].readyTransition = null;
 					});
 				}
 
@@ -3424,7 +3461,7 @@
 				}
 
 				if (webpackFlag) {
-					return js(function(res) {
+					return route.controllerFn(function(res) {
 
 						if (_.isFunction(res)) {
 							res(cm || {});
