@@ -1477,9 +1477,9 @@ const Compiler = {
 			this.redis.expire(this.redisKey, 60 * 60 * 24);
 		}
 
-		delete this.vObj;
-		delete this.template;
-		delete this.vNodeTemplate;
+		this.vObj = null;
+		this.template = null;
+		this.vNodeTemplate = null;
 	},
 
 	addComponent (key, value) {
@@ -1492,32 +1492,48 @@ const Compiler = {
 
 	transferComponent () {
 		const comp = {};
-		for(let key in this.component) {
+		_.each(this.component, (cp, key) => {
 			const 
 				obj = {}
-				, cp = this.component[key]
 				;
 
 			obj.data = cp.data;
+			this.funcFormat(cp.$scope);
 			obj.$scope = cp.$scope;
 			obj.template = cp.template;
 			comp[cp.key] = obj;
-		}
+		});
 		return comp;
 	},
 
+	funcFormat (scope = this.$scope) {
+		let _this = this;
+		_.each(scope, (value, key) => {
+
+			if (_.isFunction(value)) {
+				scope[key] = value.toString();
+			}
+
+			else if (_.isObject(value)) {
+				_this.funcFormat(value);
+			}
+		});
+		return scope;
+	},
+
 	renderTpl () {
+		this.funcFormat();
 
 		if (this.metaUrl) {
 			TEMPLATE = TEMPLATE.replace(REGEXP.metaRE, fs.readFileSync(this.metaUrl, 'utf8'));
 		}
 
 		let tpl = TEMPLATE
-			.replace(REGEXP.modelRE, $stringify(this.$scope))
+			.replace(REGEXP.modelRE, 'JSpring.fn.funcFormat(' + $stringify(this.$scope) + ')')
 			.replace(REGEXP.bodyRE, this.outerHTML)
 			.replace(REGEXP.jsRE, this.js)
 			.replace(REGEXP.cssRE, this.css)
-			.replace(REGEXP.templateRE, $stringify(this.transferComponent()))
+			.replace(REGEXP.templateRE, 'JSpring.fn.addMultiComponent(' + $stringify(this.transferComponent()) + ')')
 			.replace(REGEXP.fnRE, "new Function('__j', '" 
 				+ this.vNodeTemplate
 					.replace(/'/g, '"')
