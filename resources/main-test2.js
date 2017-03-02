@@ -943,7 +943,6 @@
 
 					else {
 						_this.arrPush(tmpArr, _this.flattenArr(el, cb));
-						// $push.apply(tmpArr, _this.flattenArr(el));
 					}
 				});
 			}
@@ -2248,7 +2247,7 @@
 			component.vObj = inst.analyzeHtml(component.template);
 			component.vTpl = genVNodeExpr(component.vObj, 0, inst);
 			component.props = component.props || {};
-			component.$scope = optimizeCb(defineProp
+			component.$scope = component.$scope || optimizeCb(defineProp
 				, component
 				, component.props
 				, {}
@@ -2263,15 +2262,13 @@
 				+ (component.parent || '$parent')
 				+ ') { with(__j._cp["'
 				+ tagName
-				+ '"].$scope) {'
-				+ 'return __j._n(\"'
+				+ '"].$scope) {return __j._n(\"'
 				+ vObj.tagName
 				+ '\", '
 				+ attrStr
 				+ ', ['
 				+ component.vTpl
-				+ '], true)'
-				+ '}} ('
+				+ '], true)}} ('
 				+ componentData
 				+ ', '
 				+ index
@@ -2619,7 +2616,11 @@
 
 	JSpring.addComponent = function (key, value) {
 		value.key = key;
-		JSpring.component[_.lower(key)] = value;
+		var lowerKey = _.lower(key);
+
+		if (!JSpring.component[lowerKey]) {
+			JSpring.component[lowerKey] = value;
+		}
 	};
 
 	//vm
@@ -3078,7 +3079,6 @@
 		},
 
 		bootstrap : function bootstrap () {
-			// console.timeEnd('JSpring-createEl')
 			var _this = this;
 			_this.nextTick();
 			
@@ -3091,7 +3091,6 @@
 			else {
 				_.beforeNode(_this.frag, _this.el);
 				_.removeNode(_this.el);
-				// _.replaceNode(_this.frag, _this.el);
 			}
 			_this.clearNoUseAttr();
 			return optimizeCb(
@@ -3532,6 +3531,7 @@
 				case 'textarea':
 					return el.disabled;
 					break;
+
 				case 'input':
 				
 					if ((deviceIsIOS && el.type === 'file') || el.disabled) {
@@ -3542,9 +3542,11 @@
 						return false;
 					}
 					break;
+
 				case 'label':
 				case 'video':
 					return true;
+
 				default:
 					return true;
 			}
@@ -3554,7 +3556,7 @@
 	//默认路由跳转走hash
 	JSpring.router.html5Mode = false;
 
-	JSpring.router.enableHtml5Mode = function enableHtml5Mode() {
+	JSpring.router.enableHtml5Mode = function () {
 		JSpring.router.html5Mode = true;
 	};
 
@@ -3626,11 +3628,13 @@
 
 	JSpring.module['$location'] = $location;
 	window.JSpring = JSpring;
-	window.JSpringComponent = function () {
+	window.JSpringClass = function () {
 		return this.render.call(this, arguments);
 	};
 
-	JSpringComponent.prototype = {
+	window.$ = $;
+
+	JSpringClass.prototype = {
 		render : function (args) {
 			return JSpring(args);
 		}
