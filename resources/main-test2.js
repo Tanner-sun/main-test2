@@ -20,6 +20,7 @@
  *
  * @author Arnold.Zhang
  *
+ * 注释分支专用
  **/
 ;(function (global, factory) {
 	typeof exports === 'object' 
@@ -49,11 +50,13 @@
 
 		, $apply = Function.prototype.apply
 		, $replace = STRING.replace
+		//split用于按照一定规则分割字符串为数组
 		, $split = STRING.split
 		, $lower = STRING.toLowerCase
 		, $substr = STRING.substr
 		, $defProp = Object.defineProperty
 		, $create = Object.create
+		//Object.keys获取对象keys
 		, $keys = Object.keys
 		, $toString = OBJ.toString
 		, $slice = ARRAY.slice
@@ -101,10 +104,13 @@
 	/**
 	 * LOG
 	 **/
+	//日志输出在console的log,warn,error方法上重构 
 	var LOG = {
 		$errQ : [],
 
 		info : function info () {
+			//实际上是这样：console.log.$apply(console, arguments)
+			//为什么这样处理？console.log(arguments)输出的是数组[arguments]
 			$apply.call(console.log, console, arguments);
 		},
 
@@ -976,7 +982,7 @@
 			_['is' + key] = REGEXP.test(keyObj[key], UA);
 		});
 	});
-
+	//拦截数组原型方法，每次调用方法时：1.0 触发与该数组对应key的dep里维系的watcher更新。2.0 重新生成vNode 执行diff 重新渲染
 	_.each($split.call('push pop shift unshift splice sort reverse', REGEXP.spaceRE), function arrayProtoEach (method) {
 		var protoMethod = arrProto[method];
 		defVal(arrProto, '$' + method, function arrProVal () {
@@ -985,7 +991,7 @@
 			return result;
 		});
 	});
-
+	//处理arr[0]=newValue不触发更新问题
 	defVal(arrProto, '$set', function arrProSetVal (index, value) {
 		var len = this.length;
 
@@ -1201,6 +1207,7 @@
 	};
 
 	function getNonMatchReg (value) {
+		//new RegExp中字符串字符\需要转义
 		return new RegExp('\\s*(?:' 
 			+ value.replace(REGEXP.spaceRE, '|') 
 			+ ')\\b', 'g');
@@ -2880,14 +2887,7 @@
 				_this = this
 				, children
 				;
-
-			if (_.isArray(vNode)) {
-				_.each(_this.vNode, function(vNodeItem){
-					_this.initNode(vNodeItem)
-				});
-				return _this;
-			}
-
+			
 			createElemAndAppend(vNode, _this, _this.frag);
 			children = vNode.children || [];
 			children.length && _.each(children, function initNodeChildEach (child) {
