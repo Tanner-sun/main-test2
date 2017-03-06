@@ -9,6 +9,8 @@ var src = './src/';
 var entryArr = [src + 'main.js'];
 var plugins = [
     new webpack.optimize.DedupePlugin(),
+    // HtmlWebpackPlugin插件用来简化创建服务于 webpack bundle 的 HTML 文件.
+    // 尤其是对于在文件名中包含了 hash 值，而这个值在每次编译的时候都发生变化的情况。
     new HtmlWebpackPlugin({
         template : src + 'index.html',
         filename : '../index.html'
@@ -21,7 +23,7 @@ var entryObj = {
 
 //if use webpack-dev-server
 if (serverFlag) {
-    HOST = 'http://localhost:8080';
+    HOST = 'http://localhost:8050';
 }
 
 if (env != 'development') {
@@ -35,7 +37,7 @@ if (env != 'development') {
         HOST = '.';
     }
 } else {
-    [].push.apply(entryArr, ['webpack-dev-server/client?http://0.0.0.0:8080', 'webpack/hot/only-dev-server']);
+    [].push.apply(entryArr, ['webpack-dev-server/client?http://0.0.0.0:8050', 'webpack/hot/only-dev-server']);
     plugins.push(new webpack.HotModuleReplacementPlugin());
 }
 var dest = HOST + '/dist/';
@@ -57,6 +59,7 @@ module.exports = {
         filename: 'bundle.js?v=' + version
     },
     // devtool: '',//'#source-map',//source map 支持
+    // lib对应JSpring代码。
     watchOptions: [lib + '**.js', lib + '**.css', src + '**.js', src + '*/**.js', src + '**.css'], //监控脚本
     plugins: plugins,
     //加载器

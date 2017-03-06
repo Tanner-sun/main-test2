@@ -2809,7 +2809,8 @@
 				, _this
 				), console.timeEnd('server render');
 		},
-
+		//为VNode检测是否需要进行再渲染。如果需要，如绑定事件等。则重新根据VNode生成
+		//DOM节点。将该DOM绑定事件，并replace现有节点
 		bindElement : function bindElement (collection, children) {
 			var 
 				_this = this

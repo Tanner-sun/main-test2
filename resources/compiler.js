@@ -880,7 +880,7 @@ const createVObj = (tagName, html) => {
 			if (isForAttr(attrKey)) {
 				isFor = attrValue;
 			}
-
+			//根据模板解析为Vobj，如对if model on打上需要渲染标签。
 			if (isIfAttr(attrKey) || isModelAttr(attrKey) || isOnAttr(attrKey)) {
 				isNeedRender = true;
 			}
