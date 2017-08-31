@@ -1,11 +1,13 @@
 /**
   * router config
   **/
-import '../lib/main-test2';
+import '../../../resources/main.css';
+import '../../../resources/main-test2';
 const 
             BASE = './'
             , DEST = BASE + 'dist/'
             ;
+// JSpring.router.enableHtml5Mode();
 JSpring.router('#container', {
 
     'mainPage' : {

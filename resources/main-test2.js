@@ -24,12 +24,12 @@
 ;(function (global, factory) {
 	typeof exports === 'object' 
 		&& typeof module !== 'undefined' 
-			? module.exports = factory() 
+			? module.exports = factory(global) 
 			: typeof define === 'function' 
 				&& define.amd 
 					? define(factory) 
 					: global.JSpring = factory(global);
-} (this || window, function () {
+} (this || window, function (w) {
 	 "use strict"
 
 	var 
@@ -67,6 +67,7 @@
 		;
 	
 	emptyDataObj.data = $create(null);
+	insertCSS();
 
 	var LOOP = {
 		INDEX : 0,
@@ -167,10 +168,17 @@
 	 * WARN
 	 **/
 	var WARN = {
-		format : function (attr) {
+		format : function format (attr) {
 			return 'not match the format of {1}'
 				.replace(/\{\d\}/g, attr);
 		},
+
+		missComp : function missComp (tag) {
+			return '`{1}` is not a component'
+				.replace(/\{\d\}/g, tag);
+		},
+		
+		h5Semantic : 'dont`t wrap block-element inside <p>',
 		container : 'the viewport haven`t found the container to place in'
 	};
 
@@ -179,8 +187,9 @@
 	 * REGEXP
 	 **/
 	var REGEXP = {
-		startEndAngleRE : /((?:\s|&[a-zA-Z]+;|<!\-\-@|[^<>]+)*)(<?(\/?)([^!<>\/\s]+)(?:\s*[^\s=\/>]+(?:="[^"]*"|='[^']*'|)|)+\s*\/?>?)(?:\s*@\-\->)?/g,
-		noEndRE : /^(?:input|br|img|link|hr|base|area|meta|embed|frame)$/,
+		validTagRE : /^[a-zA-Z][a-zA-Z:_\.\-\d]*$/,
+		startEndAngleRE : /((?:\s|&[a-zA-Z]+;|<!\-\-@|[^<>]+)*)(<?(\/?)([^!<>\/\s]+)(?:\s*[^\s=\/>]+(?:="[^"]*"|='[^']*'|=[^'"\s]+|)|)+\s*\/?>?)(?:\s*@\-\->)?/g,
+		ghostRE : /^(?:input|br|img|link|hr|base|area|meta|embed|frame)$/,//虚元素
 		attrsRE : /\s+([^\s=<>]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s<>]+))/g,
 		routeParamREG : /\:([^\:\-\.]+)/g,
 		uniqNoteRE : /<!\-\-@\s*([^@]+)\s*@\-\->/g,
@@ -188,6 +197,7 @@
 		commentRE : /\s*<!--\s*|\s*-->\s*/g,
 		uniqLeftNoteRE : /<!\-\-@/g,
 		errMsgRE : / is not defined/,
+		funcStrRE : /^\s*function/,
 		colonREG : /\s*\:\s*/,
 		rhashcodeRE : /\d\.\d{4}/,
 		uniqRE : /(?:lv-|:)([^-:]+)/,
@@ -298,6 +308,10 @@
 	 * _
 	 **/
 	var _ = {
+
+		isFunctionStr : function isFunctionStr (value) {
+			return REGEXP.funcStrRE.test(value);
+		},
 		
 		capitalLower : function capitalLower (str) {
 			return REGEXP.replace(str, REGEXP.capital, function (match) {
@@ -336,7 +350,7 @@
 			}
 		},
 
-		uniqPush: function uniqPush (arr, child) {
+		uniqPush : function uniqPush (arr, child) {
 
 			if (_.isArray(arr)) {
 				return !_.inArray(arr, child) && _.push(arr, child);
@@ -431,10 +445,12 @@
 				opts = {};
 			}
 
-			var jsonpREG = new RegExp((opts.jsonp || 'callback') + '=([^&]+)', 'g'),
-				script = $createEl("script"),
-				result = url.match(jsonpREG),
-				cbName;
+			var 
+				jsonpREG = new RegExp((opts.jsonp || 'callback') + '=([^&]+)', 'g')
+				, script = $createEl("script")
+				, result = url.match(jsonpREG)
+				, cbName
+				;
 
 			if (!result) {
 				return LOG.err('必须包含回调方法名');
@@ -491,6 +507,7 @@
 			client.open(method, url, true);
 			client.setRequestHeader('signal', 'ab4494b2-f532-4f99-b57e-7ca121a137ca');
 			client.onreadystatechange = handler;
+
 			try {
 				client.responseType = responseType;
 			} catch (err) {
@@ -501,12 +518,14 @@
 
 			function handler () {
 				var response;
+
 				if (this.readyState !== 4) {
 					return;
 				}
 
 				if (this.status === 200) {
 					response = this.response;
+
 					if (responseType == 'json') {
 						_.isString(response) && (response = JSON.parse(response));
 					}
@@ -521,12 +540,13 @@
 
 		serialize : function serialize (data) {
 			var result = '';
+			
 			if (_.isObject(data)) {
-				_.each($keys(data), function seriKeyEach(key) {
+				_.each($keys(data), function seriKeyEach (key) {
 					var value;
 
 					if (_.isArray(value = data[key])) {
-						_.each(value, function seriValueEach(val) {
+						_.each(value, function seriValueEach (val) {
 
 							if (!_.isVoid0(val)) {
 								result += key + '=' + encodeURIComponent(val) + '&';
@@ -610,7 +630,13 @@
 				.replace(/&quot;/g, '"')
 				.replace(/&amp;/g, '&')
 				.replace(/&gt;/g, '>')
-				.replace(/&lt;/g, '<');
+				.replace(/&lt;/g, '<')
+				.replace(/&reg;/g, '®')
+				.replace(/&trade;/g, '™')
+				.replace(/&copy;/g, '©')
+				.replace(/&times;/g, '×')
+				.replace(/&divide;/g, '÷')
+				.replace(/&yen;/g, '¥');
 		},
 
 		toBool : function toBool (value) {
@@ -921,7 +947,6 @@
 
 					else {
 						_this.arrPush(tmpArr, _this.flattenArr(el, cb));
-						// $push.apply(tmpArr, _this.flattenArr(el));
 					}
 				});
 			}
@@ -956,7 +981,7 @@
 	});
 
 	_.each([BROWSER, PLATFORM], function enumEach (keyObj) {
-		_.each($keys(keyObj), function keyObjEach(key) {
+		_.each($keys(keyObj), function keyObjEach (key) {
 			_['is' + key] = REGEXP.test(keyObj[key], UA);
 		});
 	});
@@ -1023,7 +1048,7 @@
 
 	Promise.prototype = {
 		constructor: Promise,
-		init : function init(callback, opts) {
+		init : function init (callback, opts) {
 			opts = opts || {};
 			var inst = opts.inst;
 			inst.define(opts.inst);
@@ -1033,7 +1058,7 @@
 			}
 		},
 
-		define : function define(inst) {
+		define : function define (inst) {
 			var pId = inst.promiseId;
 			inst.pushQById(pId);
 
@@ -1180,6 +1205,13 @@
 			: $slice.call(args, 2));
 	};
 
+	function insertCSS () {
+		var style = document.createElement('style');
+		style.className = 'JSpring_style';
+		style.textContent = '.fadeIn {-webkit-transition:1s; transition:1s; opacity: 2!important; } .dataLoading{position: fixed; top: 50%; left: 50%; width:75px; height: 75px; border-radius: 4px; background: rgba(0,0,0,.6);color: #ffffff; -webkit-transform: translate(-50%, -50%); transform: translate(-50%, -50%); white-space: nowrap; z-index: 9999; } .dataLoading i:nth-of-type(1){position: absolute; left: 23px; width: 30px; height: 30px; margin-top: 10px; background: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACQAAAAkBAMAAAATLoWrAAAABGdBTUEAALGPC/xhBQAAAAFzUkdCAK7OHOkAAAAqUExURQAAAP///////////////////////////////////////////////////4a7yi8AAAANdFJOUwCvZEnbl3vIMg8e+Ou7zMV6AAABdElEQVQoz1WRu0vDUBTGT9NXdKoPFIRA6l4o6OCDQp1cLLg6BILOgaiLS6FuigoFdVcQRERwrVJQsAiFDknf1u9/8dx7U7w9w9fk13M+zvlCxLV6x2I2SSsnw3LT08hU/YfV6mooiZDIQF9Dz+gJ0ZEjuhwEGiphwH7QvYAiW6E9gXYpJrg+aFMayE/Y25SYsKICls4e4esoAVF3FOPROYUMQTpVevHJiMbTsitDzpAuon09idrTGI5vN+sSBQaKJlRCl5KgY8BNQcRE8ZZCv3HYSbgiP+XEXdSazcqAHiLC23vR6c4YtakMFWNpjPyUUHE7whJ63Dqq5AQS9vVhAa/8Ft7KXtd0yQo8vFlATTmc79t0FVmdSO2nOnky1Dk4DryuhyZ9stmpQs13Kyijsbgn1rheXmEU5tRfA5WOyY+jtflttbEqcXmwURWoFiE5NMrzLjiK0Jaz87Vw7898H2bXI9RwKhxT5eDj/7M9bdrytyrkD87Z/XccDvR3AAAAAElFTkSuQmCC") center center no-repeat; background-size: 26px; -webkit-animation:shake 2s linear 0s infinite; animation:shake 2s linear 0s infinite; } .dataLoading i:nth-of-type(2){height: 38px; width: 38px; left: 18px; position: absolute; top: -3px; margin-top: 10px; border-top: 2px solid #fff; border-right: 1px solid #fff; border-radius: 50%; -webkit-transform:rotate(0deg); transform:rotate(0deg); -webkit-animation:loading 1s linear 0s infinite; animation:loading 1s linear 0s infinite; } .dataLoading span{position: absolute; bottom: 13px; font-size: 14px; } .dataLoading>span {position: absolute; text-align: center; top: 48px; width: 75px; } @-webkit-keyframes loading {from{ -webkit-transform:rotate(0deg)} to{ -webkit-transform:rotate(360deg)} } @keyframes loading {from{ transform:rotate(0deg);} to{ transform:rotate(360deg);} } @-webkit-keyframes shake {0% {} 75% { -webkit-transform:rotate(0deg)} 80% { -webkit-transform:rotate(45deg)} 85% { -webkit-transform:rotate(-45deg)} 90% { -webkit-transform:rotate(25deg)} 95% { -webkit-transform:rotate(-25deg)} 100%{ -webkit-transform:rotate(0deg)} } @keyframes shake {0% {} 75% {transform:rotate(0deg)} 80% {transform:rotate(45deg)} 85% {transform:rotate(-45deg)} 90% {transform:rotate(25deg)} 95% {transform:rotate(-25deg)} 100%{transform:rotate(0deg)} } .loadingMask{position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; background: rgba(0, 0, 0, 0); overflow: hidden; display: block;}';
+		DOC.head.appendChild(style);
+	};
+
 	function hasDiffText (vNode, newVnode) {
 		return vNode.textContent !== newVnode.textContent;
 	};
@@ -1223,7 +1255,7 @@
 			length = arrObj.length;
 
 			while (++index < length) {
-				result[index] = cb(arrObj[index], index, inst);
+				result[index] = cb(arrObj[index], index, inst, index == 0, index == length - 1);
 			}
 		} 
 
@@ -1232,7 +1264,7 @@
 			length = arrKey.length;
 
 			while (++index < length) {
-				result[index] = cb(arrObj[arrKey[index]], arrKey[index], inst);
+				result[index] = cb(arrObj[arrKey[index]], arrKey[index], inst, index == 0, index == length - 1);
 			}
 		}
 		return result;
@@ -1292,7 +1324,7 @@
 
 	function isComponentAttr (attr) {
 		return REGEXP.test(REGEXP.compRE, attr);
-	}
+	};
 
 	function isOnAttr (attr) {
 		return REGEXP.test(REGEXP.onRE, attr);
@@ -1420,7 +1452,7 @@
 		if (sUniq) {
 
 			if (!tUniq) {
-				tUniq = tData.tUniq = $create(null);
+				tUniq = tData.uniq = $create(null);
 			}
 			_.extend(tUniq, sUniq || {});
 			tData.uKeys = $keys(tUniq);
@@ -1641,7 +1673,7 @@
 		if (staticKeys.length) {
 			res += 'static:{';
 			_.each(staticKeys, function staticKeyEach (key) {
-				res += key + ':\"' + vObj.staticAttrs[key] + '\",'
+				res += '\"' + key + '\":\"' + vObj.staticAttrs[key] + '\",'
 			});
 			res += '},';
 		}
@@ -1740,6 +1772,7 @@
 		} catch (e) {
 
 			if (!_.isFunction(callback)) {
+				LOG.warn('TIP : ' + e.message);
 				return noop;
 			}
 			return callback(body);
@@ -1857,6 +1890,7 @@
 		constructor: Query,
 
 		val : function val (value) {
+
 			if (_.isVoid0(value)) {
 				return this.els[0] ? this.els[0].value : '';
 			}
@@ -1874,6 +1908,7 @@
 		},
 
 		each : function each (callback) {
+
 			if (_.isFunction(callback)) {
 				this.els.length && this.els.forEach(function eachEach (el, i, arr) {
 					callback(el, i, arr);
@@ -1883,6 +1918,7 @@
 		},
 
 		html : function _html (html) {
+
 			if (_.isVoid0(html)) {
 				return this.els[0].innerHTML;
 			}
@@ -1893,6 +1929,7 @@
 		},
 
 		attr : function attr (key, value) {
+
 			if (!(1 in arguments)) {
 				return this.els[0].getAttribute(key);
 			}
@@ -2193,7 +2230,7 @@
 			index = match[3];
 			parent = match[2];
 			str = '__j._mp(' + parent + ', function(' + match[1] + ', '
-				+ (index || '$index') + ') {';
+				+ (index || '$index') + ', $this, $first, $last) {';
 
 			if (!vObj.isComponent) {
 				str += 'return __j._n(\"' + vObj.tagName + '\", ' + attrStr + ', '
@@ -2205,34 +2242,35 @@
 				str += 'return ' 
 					+ genComponent(vObj, attrStr, inst, parent, index || '$index');
 			}
-			str += '})';
+			str += '}, __j)';
 			return str;
 		}
 		return WARN.format('for'), STRING;
 	};
 
 	function genComponent (vObj, attrStr, inst, parent, index) {
-		// vObj.children = [];
 		var 
 			tagName = vObj.tagName
 			, component = JSpring.component[tagName || 'div']
 			, componentData
 			;
 
+		if (!REGEXP.validTagRE.test(tagName)) {
+			return new Error('The tagName ' + tagName + ' is not a valid name');
+		}
+
 		if (component) {
 			componentData = vObj.isComponent;
 			parent = parent || componentData;
 			component.vObj = inst.analyzeHtml(component.template);
-			// extendStaticAndUniqAttrs(component.vObj, vObj);
 			component.vTpl = genVNodeExpr(component.vObj, 0, inst);
 			component.props = component.props || {};
-			component.$scope = optimizeCb(defineProp
+			component.$scope = component.$scope || optimizeCb(defineProp
 				, component
 				, component.props
 				, {}
 				, inst);
 			_.push(vObj.children, component.vObj);
-			// $splice.call(vObj.parentVObj.children, vObj.index, 1, component.vObj);
 
 			return component.vTpl = '(function('
 				+ component.data
@@ -2242,15 +2280,13 @@
 				+ (component.parent || '$parent')
 				+ ') { with(__j._cp["'
 				+ tagName
-				+ '"].$scope) {'
-				+ 'return __j._n(\"'
+				+ '"].$scope) {return __j._n(\"'
 				+ vObj.tagName
 				+ '\", '
 				+ attrStr
 				+ ', ['
 				+ component.vTpl
-				+ '], true)'
-				+ '}} ('
+				+ '], true)}} ('
 				+ componentData
 				+ ', '
 				+ index
@@ -2258,9 +2294,11 @@
 				+ parent
 				+ '"))';
 		}
-		return '__j._n("'
-			+ vObj.tagName
-			+ '")';
+
+		return LOG.warn(WARN.missComp(tagName)),
+			'__j._n("'
+				+ vObj.tagName
+				+ '")';
 	};
 
 	/**
@@ -2326,7 +2364,10 @@
 				}
 
 				el.addEventListener(type, vNode.evtObj[type] = function onCallback ($event) {
-					return optimizeCb(callback, _this.$scope, args.concat([$event]));
+					return optimizeCb(callback
+						, _this.$scope
+						, args.concat([$event])
+						);
 				}, false);
 			}
 		});
@@ -2395,7 +2436,7 @@
 
 		className = classReg ? className.replace(classReg, STRING) : className;
 		el.className = _.trim(className + ' ' + value + ' ');
-		vNode.classReg = getNonMatchReg(value);
+		vNode.classReg = value && getNonMatchReg(value);
 	};
 
 	function vStyle (el, value, vNode) {
@@ -2592,7 +2633,12 @@
 	};
 
 	JSpring.addComponent = function (key, value) {
-		JSpring.component[_.lower(key)] = value;
+		value.key = key;
+		var lowerKey = _.lower(key);
+
+		if (!JSpring.component[lowerKey]) {
+			JSpring.component[lowerKey] = value;
+		}
 	};
 
 	//vm
@@ -2634,8 +2680,7 @@
 			_this.route = JSpring.routeCach[_this.uniqId] || $create(null);
 			_this.parent = JSpring.container.eq(0);
 			_this._single_page = true;
-			_this.template = _this.route.template;
-		
+			_this.template = _.replaceEscapeWord(REGEXP.replace(_this.route.template, REGEXP.noteRE, STRING));
 		} 
 
 		//nodejs server Or singleton
@@ -2702,7 +2747,7 @@
 				tagName = _.lower(match[4]);
 				isComponentEndTag = REGEXP.compSetRE.test(tagHtml);
 				isEndTag = _.toBool(match[3]) || isComponentEndTag;
-				isNoEndTag = REGEXP.noEndRE.test(tagName);
+				isNoEndTag = REGEXP.ghostRE.test(tagName);
 				vObj = createVObj(tagName, tagHtml, _this);
 
 				if (REGEXP.test(REGEXP.uniqLeftNoteRE, spaceOrNote)) {
@@ -2769,16 +2814,17 @@
 				, collection = _.getChildNodes(_this.el)
 				;
 
-			// _this.el.classList.add('effect_active');
-			// _this.el.classList.add('slideUp');
 			_this.vNode.el = _this.el;
 			_this.bindElement(collection, _this.vNode.children);
-
-			//TODO
-			// _this.initNode();
-			// _this.el = _.replaceNode(_this.frag.children[0], _this.el);
 			_this.clearNoUseAttr();
-			console.timeEnd('server render')
+			return optimizeCb(
+				_this.controller
+				, _this
+				, _this.$scope
+				, $
+				, JSpring.module
+				, _this
+				), console.timeEnd('server render');
 		},
 
 		bindElement : function bindElement (collection, children) {
@@ -2787,12 +2833,16 @@
 				, firstchild
 				;
 
+			if (collection.length != children.length) {
+				return LOG.warn(WARN.h5Semantic);
+			}
+
 			_.each(children, function (child, index) {
 				var collect = collection[index];
 
 				if (!child.isNeedRender) {
 					child.el = collect;
-					_this.bindElement(_.getChildNodes(child.el), child.children);
+					_this.bindElement(_.getChildNodes(child.el) || [], child.children || []);
 				} 
 
 				else {
@@ -2808,6 +2858,7 @@
 				;
 
 			if (!_this.isStatic) {
+
 				try {
 					_this.vNodeTemplate = _this.analyzeTplStr();
 					_this.renderFn = makeGetterFn(_this.vNodeTemplate);
@@ -2983,7 +3034,6 @@
 				type : UpdateType.REPLACE,
 				vNode : [prevVNode, newVNode]
 			});
-			opts.step = 0;
 
 			function _childrenDiffProxy () {
 				return childrenDiff(prevVNode.children
@@ -3029,6 +3079,7 @@
 					case 5 :// 'APPEND' : 5
 						parentVNode.append(vNode);
 						break;
+
 					default :
 						break;
 				}
@@ -3038,13 +3089,12 @@
 		},
 
 		clearNoUseAttr : function clearNoUseAttr () {
-			delete this.vObj;
-			delete this.template;
-			delete this.vNodeTemplate;
+			this.vObj = null;
+			this.template = null;
+			this.vNodeTemplate = null;
 		},
 
 		bootstrap : function bootstrap () {
-			// console.timeEnd('JSpring-createEl')
 			var _this = this;
 			_this.nextTick();
 			
@@ -3057,7 +3107,6 @@
 			else {
 				_.beforeNode(_this.frag, _this.el);
 				_.removeNode(_this.el);
-				// _.replaceNode(_this.frag, _this.el);
 			}
 			_this.clearNoUseAttr();
 			return optimizeCb(
@@ -3090,6 +3139,35 @@
 	  **/
 
 	var lastPathName = '';
+
+	//fn
+	JSpring.fn = {
+		funcFormat : function funcFormat (obj) {
+			var _this = this;
+			_.each(obj, function (value, key) {
+
+				if (_.isFunctionStr(value)) {
+					obj[key] = new Function('return ' + value + ';')();
+				}
+
+				else if (_.isObject(value)) {
+					_this.funcFormat(value);
+				}
+			});
+			return obj;
+		},
+
+		addMultiComponent : function addMultiComponent (obj) {
+			var _this = this;
+			_.each(obj, function(comp, key) {
+				JSpring.addComponent(key, {
+					data: comp.data,
+					$scope: _this.funcFormat(comp.$scope),
+					template: comp.template
+				});
+			});
+		}
+	};
 
 	//浏览历史栈
 	JSpring.Stack = [];
@@ -3126,6 +3204,7 @@
 			;
 
 		_.each(routeKeys, function routeKeysEach(r) {
+
 			if (REGEXP.test(REGEXP.colonREG, r)) {
 				matchRoute[r] = [];
 				matchRoute[r][1] = [];
@@ -3297,7 +3376,7 @@
 			});
 		};
 
-		function hashLoad(hash, opts) {
+		function hashLoad (hash, opts) {
 
 			if (onHashChanging) {
 				return false;
@@ -3343,16 +3422,16 @@
 				if (!tplFile) {
 					_.getText(route.templateUrl).then(function(tplFile) {
 						JSpring.fileCach[route.templateUrl] = tplFile;
-						instanceInit(tplFile, route.controllerFn, true);
+						instanceInit(tplFile, true);
 					});
 				} 
 
 				else {
-					instanceInit(tplFile, route.controllerFn, true);
+					instanceInit(tplFile, true);
 				}
 			}
 
-			function instanceInit (tpl, js, webpackFlag) {
+			function instanceInit (tpl, webpackFlag) {
 				var 
 					viewport
 					, loc
@@ -3368,7 +3447,7 @@
 
 				if (route.readyTransition) {
 					_.each(routeKeys, function routeKeysEach (rt) {
-						delete routes[rt].readyTransition;
+						routes[rt].readyTransition = null;
 					});
 				}
 
@@ -3385,18 +3464,19 @@
 				}
 
 				if (routeInfo.cach && JSpring.backViewPort) {
+
 					if (viewport = JSpring.vm[routeInfo.uniqId]) {
 						return viewport.renderFromCach(), onHashChanging = false;
 					}
 				}
 
-				if (!opts.noSearch && (loc = module['$location'])) {
+				if (!opts.noSearch && (loc = JSpring.module['$location'])) {
 					var indexQ = _.indexOf(location.hash, '?');
 					loc.$search = _.getSearchObj(location.search || (indexQ > -1 ? location.hash.slice(indexQ) : ''));
 				}
 
 				if (webpackFlag) {
-					return js(function(res) {
+					return route.controllerFn(function(res) {
 
 						if (_.isFunction(res)) {
 							res(cm || {});
@@ -3415,6 +3495,7 @@
 
 		function setTitle(title, hash) {
 			var el;
+
 			if (_.isNull(title)) {
 				return false;
 			}
@@ -3455,16 +3536,20 @@
 		};
 
 		function isNeedsClick(el) {
+
 			if (!el.tagName) {
 				return false;
 			}
-			switch ($lower.call(el.tagName)) {
+
+			switch (_.lower(el.tagName)) {
 				case 'button':
 				case 'select':
 				case 'textarea':
 					return el.disabled;
 					break;
+
 				case 'input':
+				
 					if ((deviceIsIOS && el.type === 'file') || el.disabled) {
 						return true;
 					} 
@@ -3473,9 +3558,11 @@
 						return false;
 					}
 					break;
+
 				case 'label':
 				case 'video':
 					return true;
+
 				default:
 					return true;
 			}
@@ -3485,7 +3572,7 @@
 	//默认路由跳转走hash
 	JSpring.router.html5Mode = false;
 
-	JSpring.router.enableHtml5Mode = function enableHtml5Mode() {
+	JSpring.router.enableHtml5Mode = function () {
 		JSpring.router.html5Mode = true;
 	};
 
@@ -3494,9 +3581,11 @@
 	  * $location
 	  **/
 	function getUrl (pathname, search) {
-		return (!JSpring.router.html5Mode 
-			? location.pathname + '#/' 
-			: '') + pathname + search;
+
+		if (!JSpring.router.html5Mode) {
+			return location.pathname + search + '#/' + pathname;
+		}
+		return pathname + search;
 	};
 
 	var 
@@ -3508,7 +3597,7 @@
 
 	_.extend($location, {
 		go : function go (pathname, search) {
-			search = search || '';
+			search = search || location.search;
 
 			if (lastPathName != pathname) {
 				lastPathName = pathname;
@@ -3533,7 +3622,7 @@
 		},
 
 		replace : function replace (pathname, search) {
-			search = search || '';
+			search = search || location.search;
 			this.$search = _.getSearchObj(search);
 			history.replaceState(null, '', getUrl(pathname, search));
 			return JSpring.hashLoad(pathname, {
@@ -3557,11 +3646,13 @@
 
 	JSpring.module['$location'] = $location;
 	window.JSpring = JSpring;
-	window.JSpringComponent = function () {
+	window.JSpringClass = function () {
 		return this.render.call(this, arguments);
 	};
 
-	JSpringComponent.prototype = {
+	window.$ = $;
+
+	JSpringClass.prototype = {
 		render : function (args) {
 			return JSpring(args);
 		}

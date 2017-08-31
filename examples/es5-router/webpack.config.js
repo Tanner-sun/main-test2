@@ -1,10 +1,10 @@
 var webpack = require('webpack');
 var HtmlWebpackPlugin = require('html-webpack-plugin');
 var version = updateVersion();
-var serverFlag = true;//open wepack-server flag
+var serverFlag = false;//open wepack-server flag
 var HOST = '.';
 var env = process.env.NODE_ENV;
-var lib = './lib/';
+var lib = '../../resources/';
 var src = './src/';
 var entryArr = [src + 'main.js'];
 var plugins = [
@@ -25,11 +25,11 @@ if (serverFlag) {
 }
 
 if (env != 'development') {
-    // plugins.push(new webpack.optimize.UglifyJsPlugin({
-    //     compress: {
-    //         warnings: false
-    //     }
-    // }));
+    plugins.push(new webpack.optimize.UglifyJsPlugin({
+        compress: {
+            warnings: false
+        }
+    }));
 
     if (env == 'production') {
         HOST = '.';
@@ -57,7 +57,7 @@ module.exports = {
         filename: 'bundle.js?v=' + version
     },
     // devtool: '',//'#source-map',//source map 支持
-    watchOptions: [lib + '**.js', src + '**.js', src + '*/**.js', src + '**.css'], //监控脚本
+    watchOptions: [lib + '**.js', lib + '**.css', src + '**.js', src + '*/**.js', src + '**.css'], //监控脚本
     plugins: plugins,
     //加载器
     module: {
@@ -69,7 +69,7 @@ module.exports = {
             loader: "html-loader"
         }, {
             test: /\.tpl$/,
-            loader: "html-loader"
+            loader: "text-loader"
         }, {
             test: /.*\.(png|jpg|jpe?g|ico|gif|svg)$/i,
             loaders: [
